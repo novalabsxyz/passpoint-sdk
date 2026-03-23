@@ -6,8 +6,8 @@
 RCT_EXTERN_METHOD(configure:(NSString *)apiKey
                   endpoint:(NSString *)endpoint
                   eapType:(nonnull NSNumber *)eapType
-                  serverCaCertPem:(NSString *)serverCaCertPem
-                  keychainAccessGroup:(NSString *)keychainAccessGroup)
+                  serverCaCertPem:(NSString * _Nullable)serverCaCertPem
+                  keychainAccessGroup:(NSString * _Nullable)keychainAccessGroup)
 
 RCT_EXTERN_METHOD(install:(NSString *)userIdentifier
                   resolver:(RCTPromiseResolveBlock)resolve

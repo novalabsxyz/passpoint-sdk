@@ -66,9 +66,17 @@ export interface PasspointProviderProps {
  * ```
  */
 export function PasspointProvider({ config, children }: PasspointProviderProps) {
+  const { apiKey, environment, eapType, serverCaCertPem, keychainAccessGroup } = config;
+
   const sdk = useMemo(() => {
-    return PasspointSDK.configure(config);
-  }, [config]);
+    return PasspointSDK.configure({
+      apiKey,
+      environment,
+      eapType,
+      serverCaCertPem,
+      keychainAccessGroup,
+    });
+  }, [apiKey, environment, eapType, serverCaCertPem, keychainAccessGroup]);
 
   const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
   const [certificateInfo, setCertificateInfo] = useState<CertificateInfo | null>(null);

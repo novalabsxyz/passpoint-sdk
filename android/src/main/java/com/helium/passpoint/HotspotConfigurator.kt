@@ -14,6 +14,8 @@ import java.security.cert.X509Certificate
 
 class HotspotConfigurator(private val context: Context) {
   private val tag = "HotspotConfigurator"
+  private val prefs = context.getSharedPreferences("helium_passpoint", Context.MODE_PRIVATE)
+  private val PREF_INSTALLED = "profile_installed"
 
   data class ProfileConfig(
     val domainName: String,
@@ -27,6 +29,7 @@ class HotspotConfigurator(private val context: Context) {
   fun install(config: ProfileConfig) {
     val passpointConfig = buildPasspointConfig(config)
     applyPasspoint(passpointConfig)
+    prefs.edit().putBoolean(PREF_INSTALLED, true).apply()
   }
 
   fun removeAll() {
@@ -52,18 +55,12 @@ class HotspotConfigurator(private val context: Context) {
     } catch (e: Exception) {
       Log.w(tag, "removeAll: passpoint config removal failed", e)
     }
+
+    prefs.edit().putBoolean(PREF_INSTALLED, false).apply()
   }
 
   fun isInstalled(): Boolean {
-    val wifi = wifiManager()
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      wifi.networkSuggestions.any { suggestion ->
-        val str = suggestion.toString()
-        str.contains("FQDN=") && str.contains("SSID=null")
-      }
-    } else {
-      passpointConfigs(wifi).isNotEmpty()
-    }
+    return prefs.getBoolean(PREF_INSTALLED, false)
   }
 
   private fun buildPasspointConfig(config: ProfileConfig): PasspointConfiguration {
@@ -145,16 +142,6 @@ class HotspotConfigurator(private val context: Context) {
         throw PasspointSDKException("PROFILE_INSTALL_FAILED",
           "Failed to apply Passpoint config: ${e.message}", e)
       }
-    }
-  }
-
-  private fun passpointConfigs(wifi: WifiManager): List<PasspointConfiguration> {
-    return try {
-      @Suppress("DEPRECATION")
-      wifi.passpointConfigurations ?: emptyList()
-    } catch (e: Exception) {
-      Log.e(tag, "passpointConfigs: failed", e)
-      emptyList()
     }
   }
 
