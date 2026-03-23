@@ -1,0 +1,40 @@
+buildscript {
+  ext.safeExtGet = {prop, fallback ->
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+
+android {
+  namespace "com.helium.passpoint"
+  compileSdk safeExtGet("compileSdkVersion", 34)
+
+  defaultConfig {
+    minSdk safeExtGet("minSdkVersion", 26)
+    targetSdk safeExtGet("targetSdkVersion", 34)
+  }
+
+  sourceSets {
+    main {
+      java.srcDirs += "src/main/java"
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = "17"
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android:+"
+  implementation "org.bouncycastle:bcprov-jdk18on:1.78.1"
+  implementation "org.bouncycastle:bcpkix-jdk18on:1.78.1"
+  implementation "androidx.core:core-ktx:1.12.0"
+}

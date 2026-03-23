@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "rootDir": ".",
+    "paths": {
+      "@helium/passpoint-sdk": ["./src/index"]
+    },
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ESNext",
+    "lib": ["ES2020"],
+    "declaration": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}
