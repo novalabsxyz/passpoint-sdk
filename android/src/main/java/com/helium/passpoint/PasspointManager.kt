@@ -19,7 +19,7 @@ class PasspointManager(private val context: Context) {
   private var serverCaCertPem: String? = null
   private var domain: String? = null
 
-  private val keyStore = KeyStoreManager()
+  private val keyStore = KeyStoreManager(context)
   private val csrGenerator = CSRGenerator()
   private val certStore = CertificateStore()
   private val hotspot by lazy { HotspotConfigurator(context) }

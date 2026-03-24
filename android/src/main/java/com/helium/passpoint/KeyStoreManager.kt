@@ -1,20 +1,28 @@
 package com.helium.passpoint
 
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Base64
 import android.util.Log
+import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
-import java.security.KeyStore
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 
 /**
- * Manages RSA keypairs in Android KeyStore (hardware-backed when available).
- * Private key material never leaves the secure enclave.
+ * Manages RSA keypairs for Passpoint credential provisioning.
+ *
+ * Note: Android's PasspointConfiguration.Credential.clientPrivateKey requires
+ * an extractable private key (it calls .encoded internally). AndroidKeyStore
+ * keys are non-extractable, so we use a standard Java keypair stored in
+ * SharedPreferences. The keys are only used for TLS client authentication
+ * with the RADIUS server, not for long-term storage of secrets.
  */
-class KeyStoreManager(
-  private val keyAlias: String = "com.helium.passpoint.rsa-key",
-) {
+class KeyStoreManager(context: Context) {
   private val tag = "KeyStoreManager"
+  private val prefs: SharedPreferences =
+    context.getSharedPreferences("helium_passpoint_keys", Context.MODE_PRIVATE)
 
   fun getOrCreateKeyPair(): KeyPair {
     getKeyPair()?.let { return it }
@@ -22,49 +30,44 @@ class KeyStoreManager(
   }
 
   fun deleteKeyPair() {
-    try {
-      val keyStore = loadKeyStore()
-      if (keyStore.containsAlias(keyAlias)) {
-        keyStore.deleteEntry(keyAlias)
-        Log.d(tag, "deleteKeyPair: deleted")
-      }
-    } catch (e: Exception) {
-      Log.w(tag, "deleteKeyPair: failed", e)
-    }
+    prefs.edit()
+      .remove("private_key")
+      .remove("public_key")
+      .apply()
+    Log.d(tag, "deleteKeyPair: deleted")
   }
 
   private fun getKeyPair(): KeyPair? {
-    return try {
-      val keyStore = loadKeyStore()
-      if (!keyStore.containsAlias(keyAlias)) return null
+    val privateB64 = prefs.getString("private_key", null) ?: return null
+    val publicB64 = prefs.getString("public_key", null) ?: return null
 
-      val entry = keyStore.getEntry(keyAlias, null) as? KeyStore.PrivateKeyEntry ?: return null
-      KeyPair(entry.certificate.publicKey, entry.privateKey)
+    return try {
+      val keyFactory = KeyFactory.getInstance("RSA")
+      val privateKey = keyFactory.generatePrivate(
+        PKCS8EncodedKeySpec(Base64.decode(privateB64, Base64.NO_WRAP))
+      )
+      val publicKey = keyFactory.generatePublic(
+        X509EncodedKeySpec(Base64.decode(publicB64, Base64.NO_WRAP))
+      )
+      KeyPair(publicKey, privateKey)
     } catch (e: Exception) {
-      Log.w(tag, "getKeyPair: failed", e)
+      Log.w(tag, "getKeyPair: failed to restore, will regenerate", e)
+      deleteKeyPair()
       null
     }
   }
 
   private fun createKeyPair(): KeyPair {
-    Log.d(tag, "createKeyPair: generating RSA-2048 in AndroidKeyStore")
-    val generator = KeyPairGenerator.getInstance(
-      KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore"
-    )
-    generator.initialize(
-      KeyGenParameterSpec.Builder(
-        keyAlias,
-        KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
-      )
-        .setKeySize(2048)
-        .setDigests(KeyProperties.DIGEST_SHA256)
-        .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-        .build()
-    )
-    return generator.generateKeyPair()
-  }
+    Log.d(tag, "createKeyPair: generating RSA-2048")
+    val generator = KeyPairGenerator.getInstance("RSA")
+    generator.initialize(2048)
+    val keyPair = generator.generateKeyPair()
 
-  private fun loadKeyStore(): KeyStore {
-    return KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+    prefs.edit()
+      .putString("private_key", Base64.encodeToString(keyPair.private.encoded, Base64.NO_WRAP))
+      .putString("public_key", Base64.encodeToString(keyPair.public.encoded, Base64.NO_WRAP))
+      .apply()
+
+    return keyPair
   }
 }

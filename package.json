@@ -62,11 +62,6 @@
       ]
     ]
   },
-  "codegenConfig": {
-    "name": "HeliumPasspointSDKSpec",
-    "type": "modules",
-    "jsSrcsDir": "src"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/helium/passpoint-sdk.git"

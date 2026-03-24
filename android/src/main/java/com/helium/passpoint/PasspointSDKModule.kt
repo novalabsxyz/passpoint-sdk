@@ -19,7 +19,8 @@ class PasspointSDKModule(reactContext: ReactApplicationContext) :
   private val mainHandler = Handler(Looper.getMainLooper())
 
   @ReactMethod
-  fun configure(apiKey: String, endpoint: String, eapType: Int, serverCaCertPem: String?) {
+  fun configure(apiKey: String, endpoint: String, eapType: Int, serverCaCertPem: String?, keychainAccessGroup: String?) {
+    // keychainAccessGroup is iOS-only, ignored on Android
     manager.configure(apiKey, endpoint, eapType, serverCaCertPem)
   }
 
