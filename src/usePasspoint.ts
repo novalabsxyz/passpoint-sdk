@@ -10,15 +10,15 @@ export type { UsePasspointResult };
  * React hook for Passpoint SDK operations.
  *
  * Must be used inside a `<PasspointProvider>`. State is shared across
- * all components — calling `install()` or `revoke()` from any component
+ * all components — calling `install()` or `remove()` from any component
  * updates `isInstalled` everywhere.
  *
  * ```tsx
  * function WifiScreen({ userId }) {
- *   const { isInstalled, install, revoke, isLoading, error } = usePasspoint();
+ *   const { isInstalled, install, remove, isLoading, error } = usePasspoint();
  *
  *   return isInstalled
- *     ? <Button onPress={revoke}>Remove WiFi Profile</Button>
+ *     ? <Button onPress={remove}>Remove WiFi Profile</Button>
  *     : <Button onPress={() => install(userId)}>Enable WiFi Offload</Button>;
  * }
  * ```

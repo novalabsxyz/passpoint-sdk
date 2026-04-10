@@ -110,7 +110,7 @@ enum PasspointSDKError: Error, LocalizedError {
   case profileInstallFailed(String)
   case profileRemoveFailed(String)
   case certificateNotFound
-  case revocationFailed(String)
+  case removeFailed(String)
   case networkError(String)
 
   var errorCode: String {
@@ -127,7 +127,7 @@ enum PasspointSDKError: Error, LocalizedError {
     case .profileInstallFailed: return "PROFILE_INSTALL_FAILED"
     case .profileRemoveFailed: return "PROFILE_REMOVE_FAILED"
     case .certificateNotFound: return "CERTIFICATE_NOT_FOUND"
-    case .revocationFailed: return "REVOCATION_FAILED"
+    case .removeFailed: return "REMOVE_FAILED"
     case .networkError: return "NETWORK_ERROR"
     }
   }
@@ -158,8 +158,8 @@ enum PasspointSDKError: Error, LocalizedError {
       return "Failed to remove Passpoint profile: \(detail)"
     case .certificateNotFound:
       return "No certificate is installed on this device."
-    case .revocationFailed(let detail):
-      return "Certificate revocation failed: \(detail)"
+    case .removeFailed(let detail):
+      return "Certificate removal failed: \(detail)"
     case .networkError(let detail):
       return "Network error: \(detail)"
     }

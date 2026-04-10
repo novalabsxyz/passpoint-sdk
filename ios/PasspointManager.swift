@@ -60,6 +60,10 @@ class PasspointManager {
     #if targetEnvironment(simulator)
       throw PasspointSDKError.simulatorNotSupported
     #else
+      // 0. Remove any existing profile so only one cert is installed at a time
+      await hotspot.removeAllProfiles()
+      keychain.deleteAll()
+
       // 1. Get or create keypair
       guard let keyPair = keychain.getOrCreateKeyPair() else {
         throw PasspointSDKError.keypairGenerationFailed(keychain.lastKeyStatusDescription())
@@ -125,7 +129,7 @@ class PasspointManager {
     #else
       // On iOS 26+, getConfiguredSSIDs no longer returns HS2.0 domains.
       // Use the keychain certificate as the source of truth — it's saved during
-      // install and cleared during revoke.
+      // install and cleared during remove.
       return keychain.hasCertificate()
     #endif
   }
@@ -156,9 +160,9 @@ class PasspointManager {
     #endif
   }
 
-  // MARK: - Revoke
+  // MARK: - Remove
 
-  func revoke() async throws -> [String: Any] {
+  func remove() async throws -> [String: Any] {
     guard apiKey != nil else {
       throw PasspointSDKError.notConfigured
     }
@@ -166,11 +170,6 @@ class PasspointManager {
     #if targetEnvironment(simulator)
       throw PasspointSDKError.simulatorNotSupported
     #else
-      // TODO: Call server-side revocation API once endpoint is defined
-      // For now, perform local cleanup only. When the endpoint is available:
-      // try await revokeOnServer()
-
-      // Local cleanup
       await hotspot.removeAllProfiles()
       keychain.deleteAll()
 

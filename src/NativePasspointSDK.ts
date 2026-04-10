@@ -37,10 +37,10 @@ export interface Spec {
   getCertificateInfo(): Promise<string>;
 
   /**
-   * Revoke the certificate server-side and remove the local profile.
-   * @returns JSON-encoded RevokeResult
+   * Remove the local Passpoint profile and clean up stored certificates.
+   * @returns JSON-encoded RemoveResult
    */
-  revoke(): Promise<string>;
+  remove(): Promise<string>;
 
   /** @internal Debug diagnostics — returns raw native state as JSON. */
   debug(): Promise<string>;

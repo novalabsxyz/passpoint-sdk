@@ -13,7 +13,7 @@ import type {
   CertificateInfo,
   InstallResult,
   PasspointConfig,
-  RevokeResult,
+  RemoveResult,
 } from "./types";
 
 export interface UsePasspointResult {
@@ -26,13 +26,13 @@ export interface UsePasspointResult {
   /** Install a Passpoint profile for the given user. */
   install: (userIdentifier: string) => Promise<InstallResult>;
 
-  /** Remove the installed profile and revoke the certificate. */
-  revoke: () => Promise<RevokeResult>;
+  /** Remove the installed Passpoint profile and clean up stored certificates. */
+  remove: () => Promise<RemoveResult>;
 
   /** Manually refresh the installation status and certificate info. */
   refresh: () => Promise<void>;
 
-  /** Whether an `install` or `revoke` operation is currently in progress. */
+  /** Whether an `install` or `remove` operation is currently in progress. */
   isLoading: boolean;
 
   /** The last error encountered, or `null`. Cleared on the next successful operation. */
@@ -50,7 +50,7 @@ export interface PasspointProviderProps {
 
 /**
  * Initialize the Passpoint SDK and make `usePasspoint()` available
- * to all descendant components. State is shared — calling `revoke()`
+ * to all descendant components. State is shared — calling `remove()`
  * from any component updates `isInstalled` everywhere.
  *
  * ```tsx
@@ -136,11 +136,11 @@ export function PasspointProvider({ config, children }: PasspointProviderProps) 
     [sdk, refresh],
   );
 
-  const revoke = useCallback(async (): Promise<RevokeResult> => {
+  const remove = useCallback(async (): Promise<RemoveResult> => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await sdk.revoke();
+      const result = await sdk.remove();
       setIsInstalled(false);
       setCertificateInfo(null);
       return result;
@@ -158,12 +158,12 @@ export function PasspointProvider({ config, children }: PasspointProviderProps) 
       isInstalled,
       certificateInfo,
       install,
-      revoke,
+      remove,
       refresh,
       isLoading,
       error,
     }),
-    [isInstalled, certificateInfo, install, revoke, refresh, isLoading, error],
+    [isInstalled, certificateInfo, install, remove, refresh, isLoading, error],
   );
 
   return <PasspointContext.Provider value={value}>{children}</PasspointContext.Provider>;

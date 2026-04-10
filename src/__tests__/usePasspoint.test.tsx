@@ -170,12 +170,12 @@ describe("usePasspoint", () => {
     });
   });
 
-  describe("revoke", () => {
-    it("revokes and updates state", async () => {
+  describe("remove", () => {
+    it("removes and updates state", async () => {
       // Start with installed profile
       mockNative.isInstalled.mockResolvedValue(true);
       mockNative.getCertificateInfo.mockResolvedValue(CERT_INFO_INSTALLED);
-      mockNative.revoke.mockResolvedValue(JSON.stringify({ success: true }));
+      mockNative.remove.mockResolvedValue(JSON.stringify({ success: true }));
 
       const { result } = renderHook(() => usePasspoint(), { wrapper });
 
@@ -183,23 +183,23 @@ describe("usePasspoint", () => {
         expect(result.current.isInstalled).toBe(true);
       });
 
-      let revokeResult: any;
+      let removeResult: any;
       await act(async () => {
-        revokeResult = await result.current.revoke();
+        removeResult = await result.current.remove();
       });
 
-      expect(revokeResult).toEqual({ success: true });
+      expect(removeResult).toEqual({ success: true });
       expect(result.current.isInstalled).toBe(false);
       expect(result.current.certificateInfo).toBeNull();
       expect(result.current.isLoading).toBe(false);
     });
 
-    it("sets error state on revocation failure", async () => {
+    it("sets error state on removal failure", async () => {
       mockNative.isInstalled.mockResolvedValue(true);
       mockNative.getCertificateInfo.mockResolvedValue(CERT_INFO_INSTALLED);
-      mockNative.revoke.mockRejectedValue({
-        code: "REVOCATION_FAILED",
-        message: "Server error",
+      mockNative.remove.mockRejectedValue({
+        code: "REMOVE_FAILED",
+        message: "Removal error",
       });
 
       const { result } = renderHook(() => usePasspoint(), { wrapper });
@@ -210,13 +210,13 @@ describe("usePasspoint", () => {
 
       await act(async () => {
         try {
-          await result.current.revoke();
+          await result.current.remove();
         } catch {
           // expected
         }
       });
 
-      expect(result.current.error?.code).toBe(PasspointErrorCode.REVOCATION_FAILED);
+      expect(result.current.error?.code).toBe(PasspointErrorCode.REMOVE_FAILED);
       // isInstalled should not change on failure
       expect(result.current.isInstalled).toBe(true);
     });

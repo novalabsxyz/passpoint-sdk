@@ -10,7 +10,7 @@ export type {
   CertificateInfo,
   InstallResult,
   PasspointConfig,
-  RevokeResult,
+  RemoveResult,
 } from "./types";
 // Enums and errors
 export { EapType, PasspointErrorCode } from "./types";

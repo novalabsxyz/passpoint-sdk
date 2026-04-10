@@ -22,7 +22,7 @@ RCT_EXTERN_METHOD(getCertificateInfo:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(debug:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(revoke:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(remove:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 @end

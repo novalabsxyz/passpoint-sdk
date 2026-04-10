@@ -85,15 +85,15 @@ class PasspointSDKModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun revoke(promise: Promise) {
+  fun remove(promise: Promise) {
     runAsync {
       try {
-        val result = manager.revoke()
+        val result = manager.remove()
         resolveOnMain(promise, result.toString())
       } catch (e: PasspointSDKException) {
-        rejectOnMain(promise, e.errorCode, e.message ?: "Revoke failed")
+        rejectOnMain(promise, e.errorCode, e.message ?: "Remove failed")
       } catch (e: Exception) {
-        rejectOnMain(promise, "UNKNOWN", e.message ?: "Revoke failed")
+        rejectOnMain(promise, "UNKNOWN", e.message ?: "Remove failed")
       }
     }
   }

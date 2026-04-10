@@ -52,6 +52,10 @@ class PasspointManager(private val context: Context) {
     val endpoint = this.endpoint ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
     val domain = this.domain ?: throw PasspointSDKException("NOT_CONFIGURED", "Domain not resolved from endpoint")
 
+    // 0. Remove any existing profile so only one cert is installed at a time
+    hotspot.removeAll()
+    keyStore.deleteKeyPair()
+
     // 1. Get or create keypair
     val keyPair: KeyPair
     try {
@@ -130,16 +134,13 @@ class PasspointManager(private val context: Context) {
     return result
   }
 
-  // MARK: - Revoke
+  // MARK: - Remove
 
-  fun revoke(): JSONObject {
+  fun remove(): JSONObject {
     if (apiKey == null) {
       throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
     }
 
-    // TODO: Call server-side revocation API once endpoint is defined
-
-    // Local cleanup
     hotspot.removeAll()
     keyStore.deleteKeyPair()
 

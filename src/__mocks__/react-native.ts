@@ -25,6 +25,6 @@ export const NativeModules = {
     install: jest.fn(),
     isInstalled: jest.fn(),
     getCertificateInfo: jest.fn(),
-    revoke: jest.fn(),
+    remove: jest.fn(),
   },
 };

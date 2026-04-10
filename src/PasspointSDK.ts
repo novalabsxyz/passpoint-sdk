@@ -5,7 +5,7 @@ import type {
   CertificateInfo,
   InstallResult,
   PasspointConfig,
-  RevokeResult,
+  RemoveResult,
 } from "./types";
 import { EapType, PasspointErrorCode } from "./types";
 
@@ -151,20 +151,18 @@ export class PasspointSDK {
   }
 
   /**
-   * Revoke the installed certificate and remove the Passpoint profile.
-   *
-   * This calls the server-side revocation API first, then removes the
-   * local profile and cleans up stored keys and certificates.
+   * Remove the installed Passpoint profile and clean up stored keys
+   * and certificates from the device.
    *
    * @throws {PasspointError} with code `CERTIFICATE_NOT_FOUND` if no profile is installed.
-   * @throws {PasspointError} with code `REVOCATION_FAILED` if the server call fails.
+   * @throws {PasspointError} with code `REMOVE_FAILED` if the removal fails.
    */
-  async revoke(): Promise<RevokeResult> {
+  async remove(): Promise<RemoveResult> {
     this.ensureConfigured();
 
     try {
-      const json = await NativePasspointSDK.revoke();
-      return JSON.parse(json) as RevokeResult;
+      const json = await NativePasspointSDK.remove();
+      return JSON.parse(json) as RemoveResult;
     } catch (error) {
       throw PasspointError.fromNative(error);
     }

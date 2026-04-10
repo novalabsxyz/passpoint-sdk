@@ -260,44 +260,44 @@ describe("PasspointSDK", () => {
     });
   });
 
-  describe("revoke", () => {
+  describe("remove", () => {
     let sdk: PasspointSDK;
 
     beforeEach(() => {
       sdk = PasspointSDK.configure({ apiKey: "pk_123" });
     });
 
-    it("calls native revoke and parses result", async () => {
-      mockNative.revoke.mockResolvedValue(JSON.stringify({ success: true }));
+    it("calls native remove and parses result", async () => {
+      mockNative.remove.mockResolvedValue(JSON.stringify({ success: true }));
 
-      const result = await sdk.revoke();
+      const result = await sdk.remove();
 
-      expect(mockNative.revoke).toHaveBeenCalled();
+      expect(mockNative.remove).toHaveBeenCalled();
       expect(result).toEqual({ success: true });
     });
 
-    it("wraps revocation failures", async () => {
-      mockNative.revoke.mockRejectedValue({
-        code: "REVOCATION_FAILED",
-        message: "Server returned 500",
+    it("wraps removal failures", async () => {
+      mockNative.remove.mockRejectedValue({
+        code: "REMOVE_FAILED",
+        message: "Failed to remove profile",
       });
 
       try {
-        await sdk.revoke();
+        await sdk.remove();
         fail("expected error");
       } catch (e) {
-        expect((e as PasspointError).code).toBe(PasspointErrorCode.REVOCATION_FAILED);
+        expect((e as PasspointError).code).toBe(PasspointErrorCode.REMOVE_FAILED);
       }
     });
 
     it("wraps CERTIFICATE_NOT_FOUND when no profile exists", async () => {
-      mockNative.revoke.mockRejectedValue({
+      mockNative.remove.mockRejectedValue({
         code: "CERTIFICATE_NOT_FOUND",
-        message: "No certificate to revoke",
+        message: "No certificate to remove",
       });
 
       try {
-        await sdk.revoke();
+        await sdk.remove();
         fail("expected error");
       } catch (e) {
         expect((e as PasspointError).code).toBe(PasspointErrorCode.CERTIFICATE_NOT_FOUND);

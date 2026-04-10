@@ -103,9 +103,9 @@ export enum PasspointErrorCode {
   /** Failed to remove the Passpoint profile. */
   PROFILE_REMOVE_FAILED = "PROFILE_REMOVE_FAILED",
 
-  // --- Revocation ---
-  /** The server-side certificate revocation call failed. */
-  REVOCATION_FAILED = "REVOCATION_FAILED",
+  // --- Removal ---
+  /** Failed to remove the certificate and profile from the device. */
+  REMOVE_FAILED = "REMOVE_FAILED",
 
   // --- Android-specific ---
   /** The Android WifiManager service is not available. */
@@ -139,7 +139,7 @@ export interface InstallResult {
   success: true;
 }
 
-/** Result of a successful `revoke()` call. */
-export interface RevokeResult {
+/** Result of a successful `remove()` call. */
+export interface RemoveResult {
   success: true;
 }

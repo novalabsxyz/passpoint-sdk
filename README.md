@@ -67,7 +67,7 @@ import {
 } from "@helium/passpoint-sdk";
 
 function WifiScreen({ userId }) {
-  const { isInstalled, install, revoke, isLoading, error } = usePasspoint();
+  const { isInstalled, install, remove, isLoading, error } = usePasspoint();
 
   const handleInstall = async () => {
     try {
@@ -84,7 +84,7 @@ function WifiScreen({ userId }) {
   if (isInstalled === null) return <Loading />;
 
   return isInstalled ? (
-    <Button onPress={revoke}>Remove WiFi Profile</Button>
+    <Button onPress={remove}>Remove WiFi Profile</Button>
   ) : (
     <Button onPress={handleInstall} disabled={isLoading}>
       Enable WiFi Offload
@@ -118,7 +118,7 @@ interface UsePasspointResult {
   isInstalled: boolean | null; // null while loading
   certificateInfo: CertificateInfo | null;
   install: (userId: string) => Promise<InstallResult>;
-  revoke: () => Promise<RevokeResult>;
+  remove: () => Promise<RemoveResult>;
   refresh: () => Promise<void>;
   isLoading: boolean;
   error: PasspointError | null;
@@ -136,7 +136,7 @@ const sdk = PasspointSDK.configure({ apiKey: "your-key" });
 await sdk.install("user-123");
 await sdk.isInstalled();
 await sdk.getCertificateInfo();
-await sdk.revoke();
+await sdk.remove();
 ```
 
 ### `CertificateInfo`
@@ -196,13 +196,13 @@ try {
 | `API_RATE_LIMITED`              | Both     | Too many requests (429)                   |
 | `CERTIFICATE_PARSE_FAILED`      | Both     | Couldn't parse API response certificate   |
 | `CERTIFICATE_SAVE_FAILED`       | Both     | Keychain/KeyStore save failed             |
-| `CERTIFICATE_NOT_FOUND`         | Both     | No cert installed (during revoke)         |
+| `CERTIFICATE_NOT_FOUND`         | Both     | No cert installed (during remove)         |
 | `IDENTITY_LOAD_FAILED`          | iOS      | Couldn't build TLS identity from cert+key |
 | `PROFILE_INSTALL_FAILED`        | Both     | OS rejected the Passpoint profile         |
 | `PROFILE_INSTALL_CANCELLED`     | iOS      | User dismissed the install dialog         |
 | `PROFILE_NOT_FOUND`             | Both     | No profile to remove                      |
 | `PROFILE_REMOVE_FAILED`         | Both     | Failed to remove profile                  |
-| `REVOCATION_FAILED`             | Both     | Server-side cert revocation failed        |
+| `REMOVE_FAILED`                 | Both     | Failed to remove cert and profile         |
 | `WIFI_MANAGER_UNAVAILABLE`      | Android  | WifiManager service unavailable           |
 | `NETWORK_SUGGESTION_DISALLOWED` | Android  | User blocked app from adding WiFi         |
 | `NETWORK_SUGGESTION_LIMIT`      | Android  | Exceeded max suggestions per app          |

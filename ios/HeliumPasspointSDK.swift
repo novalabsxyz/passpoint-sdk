@@ -86,14 +86,14 @@ class HeliumPasspointSDK: NSObject {
     }
   }
 
-  @objc(revoke:rejecter:)
-  func revoke(
+  @objc(remove:rejecter:)
+  func remove(
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     Task {
       do {
-        let result = try await manager.revoke()
+        let result = try await manager.remove()
         let json = try JSONSerialization.data(withJSONObject: result)
         resolve(String(data: json, encoding: .utf8))
       } catch let error as PasspointSDKError {

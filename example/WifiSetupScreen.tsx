@@ -1,6 +1,6 @@
 /**
  * Example screen showing all SDK operations:
- * install, check status, view certificate info, and revoke.
+ * install, check status, view certificate info, and remove.
  */
 import React from "react";
 import {
@@ -27,7 +27,7 @@ export function WifiSetupScreen({ userId }: Props) {
     isInstalled,
     certificateInfo,
     install,
-    revoke,
+    remove,
     refresh,
     isLoading,
     error,
@@ -59,7 +59,7 @@ export function WifiSetupScreen({ userId }: Props) {
     }
   };
 
-  const handleRevoke = async () => {
+  const handleRemove = async () => {
     Alert.alert(
       "Remove WiFi Profile",
       "This will disconnect you from Helium WiFi hotspots. Continue?",
@@ -70,7 +70,7 @@ export function WifiSetupScreen({ userId }: Props) {
           style: "destructive",
           onPress: async () => {
             try {
-              await revoke();
+              await remove();
               Alert.alert("Done", "WiFi profile has been removed.");
             } catch (e) {
               if (e instanceof PasspointError) {
@@ -120,7 +120,7 @@ export function WifiSetupScreen({ userId }: Props) {
 
             <TouchableOpacity
               style={[styles.button, styles.dangerButton]}
-              onPress={handleRevoke}
+              onPress={handleRemove}
               disabled={isLoading}
             >
               <Text style={styles.buttonText}>
