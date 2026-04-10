@@ -146,6 +146,32 @@ class PasspointManager(private val context: Context) {
     return JSONObject().put("success", true)
   }
 
+  // MARK: - Debug
+
+  fun debug(): JSONObject {
+    val info = JSONObject()
+    info.put("configured", apiKey != null)
+    info.put("endpoint", endpoint ?: JSONObject.NULL)
+    info.put("eapType", eapType)
+    info.put("domain", domain ?: JSONObject.NULL)
+    info.put("platform", "android")
+    info.put("apiLevel", android.os.Build.VERSION.SDK_INT)
+
+    try {
+      val kp = keyStore.getOrCreateKeyPair()
+      info.put("hasKeyPair", true)
+      info.put("keyType", kp.private.algorithm)
+      info.put("keyEncodable", kp.private.encoded != null)
+    } catch (e: Exception) {
+      info.put("hasKeyPair", false)
+      info.put("keyPairError", e.message)
+    }
+
+    info.put("isInstalled", hotspot.isInstalled())
+
+    return info
+  }
+
   // MARK: - Private
 
   private fun loadServerCACert(): X509Certificate {

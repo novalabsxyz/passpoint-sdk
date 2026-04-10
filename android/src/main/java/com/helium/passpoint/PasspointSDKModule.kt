@@ -73,6 +73,18 @@ class PasspointSDKModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun debug(promise: Promise) {
+    runAsync {
+      try {
+        val info = manager.debug()
+        resolveOnMain(promise, info.toString())
+      } catch (e: Exception) {
+        resolveOnMain(promise, "{\"error\": \"${e.message}\"}")
+      }
+    }
+  }
+
+  @ReactMethod
   fun revoke(promise: Promise) {
     runAsync {
       try {
