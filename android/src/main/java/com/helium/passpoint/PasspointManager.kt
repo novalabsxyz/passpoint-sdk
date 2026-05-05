@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.security.KeyPair
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
@@ -14,10 +15,11 @@ class PasspointManager(private val context: Context) {
   private val tag = "PasspointManager"
 
   private var apiKey: String? = null
-  private var endpoint: String? = null
+  private var baseUrl: String? = null
   private var eapType: Int = 13
   private var serverCaCertPem: String? = null
   private var domain: String? = null
+  private var presetId: String? = null
 
   private val keyStore = KeyStoreManager(context)
   private val csrGenerator = CSRGenerator()
@@ -36,21 +38,22 @@ class PasspointManager(private val context: Context) {
 
   // MARK: - Configuration
 
-  fun configure(apiKey: String, endpoint: String, eapType: Int, serverCaCertPem: String?) {
+  fun configure(apiKey: String, baseUrl: String, eapType: Int, serverCaCertPem: String?, presetId: String?) {
     this.apiKey = apiKey
-    this.endpoint = endpoint
+    this.baseUrl = baseUrl.trimEnd('/')
     this.eapType = eapType
     this.serverCaCertPem = serverCaCertPem
-    this.domain = try { URL(endpoint).host } catch (_: Exception) { null }
-    Log.d(tag, "configured: endpoint=$endpoint, eapType=$eapType, domain=$domain")
+    this.presetId = presetId
+    this.domain = try { URL(baseUrl).host } catch (_: Exception) { null }
+    Log.d(tag, "configured: baseUrl=$baseUrl, eapType=$eapType, domain=$domain")
   }
 
   // MARK: - Install
 
-  fun install(userIdentifier: String): JSONObject {
+  fun install(subscriberId: String): JSONObject {
     val apiKey = this.apiKey ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
-    val endpoint = this.endpoint ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
-    val domain = this.domain ?: throw PasspointSDKException("NOT_CONFIGURED", "Domain not resolved from endpoint")
+    val baseUrl = this.baseUrl ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
+    val domain = this.domain ?: throw PasspointSDKException("NOT_CONFIGURED", "Domain not resolved from base URL")
 
     // 0. Remove any existing profile so only one cert is installed at a time
     hotspot.removeAll()
@@ -67,13 +70,13 @@ class PasspointManager(private val context: Context) {
     // 2. Generate CSR
     val csr: String
     try {
-      csr = csrGenerator.generate(userIdentifier, domain, keyPair)
+      csr = csrGenerator.generate(subscriberId, domain, keyPair)
     } catch (e: Exception) {
       throw PasspointSDKException("CSR_GENERATION_FAILED", "Failed to generate CSR: ${e.message}", e)
     }
 
     // 3. Call API
-    val profile = fetchProfile(csr, apiKey, endpoint)
+    val profile = fetchProfile(csr, subscriberId, apiKey, baseUrl)
 
     // 4. Parse certs
     val clientCert: X509Certificate
@@ -134,6 +137,53 @@ class PasspointManager(private val context: Context) {
     return result
   }
 
+  // MARK: - getRemoteStatus
+
+  /**
+   * Returns the server-side profile status JSON, or null when the server has
+   * no active profile for this subscriber (HTTP 404).
+   */
+  fun getRemoteStatus(subscriberId: String): JSONObject? {
+    val apiKey = this.apiKey ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
+    val baseUrl = this.baseUrl ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
+
+    val encoded = URLEncoder.encode(subscriberId, "UTF-8")
+    val url = URL("$baseUrl/preset/profile/status?subscriber_id=$encoded")
+    val conn = (url.openConnection() as HttpURLConnection).apply {
+      requestMethod = "GET"
+      setRequestProperty("Accept", "application/json")
+      setRequestProperty("X-Helium-P-Api-Key", apiKey)
+      connectTimeout = 30_000
+      readTimeout = 30_000
+    }
+
+    val code: Int
+    try {
+      code = conn.responseCode
+    } catch (e: Exception) {
+      throw PasspointSDKException("NETWORK_ERROR", "Failed to reach API: ${e.message}", e)
+    }
+
+    val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+    val body = stream?.bufferedReader()?.use { it.readText() } ?: ""
+
+    return when (code) {
+      in 200..299 -> {
+        val json = JSONObject(body)
+        JSONObject()
+          .put("subscriberId", json.getString("subscriber_id"))
+          .put("presetId", json.getString("preset_id"))
+          .put("eapType", json.getInt("eap_type"))
+          .put("expiresAt", json.getString("expires_at"))
+          .put("active", json.getBoolean("active"))
+      }
+      404 -> null
+      401, 403 -> throw PasspointSDKException("API_UNAUTHORIZED", "API key rejected: HTTP $code")
+      429 -> throw PasspointSDKException("API_RATE_LIMITED", "Rate limited: HTTP $code")
+      else -> throw PasspointSDKException("API_ERROR", "Status API error: HTTP $code $body")
+    }
+  }
+
   // MARK: - Remove
 
   fun remove(): JSONObject {
@@ -152,8 +202,9 @@ class PasspointManager(private val context: Context) {
   fun debug(): JSONObject {
     val info = JSONObject()
     info.put("configured", apiKey != null)
-    info.put("endpoint", endpoint ?: JSONObject.NULL)
+    info.put("baseUrl", baseUrl ?: JSONObject.NULL)
     info.put("eapType", eapType)
+    info.put("presetId", presetId ?: JSONObject.NULL)
     info.put("domain", domain ?: JSONObject.NULL)
     info.put("platform", "android")
     info.put("apiLevel", android.os.Build.VERSION.SDK_INT)
@@ -196,9 +247,9 @@ class PasspointManager(private val context: Context) {
       "helium_server_ca.crt not found in res/raw. Ensure the SDK resources are bundled.")
   }
 
-  private fun fetchProfile(csr: String, apiKey: String, endpoint: String): Profile {
+  private fun fetchProfile(csr: String, subscriberId: String, apiKey: String, baseUrl: String): Profile {
     Log.d(tag, "fetchProfile: calling API")
-    val url = URL(endpoint)
+    val url = URL("$baseUrl/preset/profile/generate")
     val conn = (url.openConnection() as HttpURLConnection).apply {
       requestMethod = "POST"
       doOutput = true
@@ -209,8 +260,10 @@ class PasspointManager(private val context: Context) {
     }
 
     val payload = JSONObject().apply {
-      put("csr", csr)
       put("type", eapType)
+      put("subscriber_id", subscriberId)
+      put("csr", csr)
+      presetId?.takeIf { it.isNotBlank() }?.let { put("preset_id", it) }
     }.toString()
 
     try {

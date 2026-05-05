@@ -22,13 +22,14 @@ describe("PasspointSDK", () => {
       expect(a).toBe(b);
     });
 
-    it("calls native configure with resolved production endpoint", () => {
+    it("calls native configure with the resolved production base URL", () => {
       PasspointSDK.configure({ apiKey: "pk_123" });
 
       expect(mockNative.configure).toHaveBeenCalledWith(
         "pk_123",
-        "https://api.hib.nova.xyz/api/inventory/v1/passpoint/generate",
+        "https://api.prod.hib.nova.xyz/api/inventory/v1",
         EapType.TLS,
+        null,
         null,
         null,
       );
@@ -39,8 +40,9 @@ describe("PasspointSDK", () => {
 
       expect(mockNative.configure).toHaveBeenCalledWith(
         "pk_123",
-        "https://api.dev.hib.nova.xyz/api/inventory/v1/passpoint/generate",
+        "https://api.dev.hib.nova.xyz/api/inventory/v1",
         EapType.TLS,
+        null,
         null,
         null,
       );
@@ -51,33 +53,36 @@ describe("PasspointSDK", () => {
 
       expect(mockNative.configure).toHaveBeenCalledWith(
         "pk_123",
-        "https://api.staging.hib.nova.xyz/api/inventory/v1/passpoint/generate",
+        "https://api.staging.hib.nova.xyz/api/inventory/v1",
         EapType.TLS,
+        null,
         null,
         null,
       );
     });
 
-    it("passes through a custom URL as the environment", () => {
+    it("passes through a custom URL as the base URL, stripping trailing slashes", () => {
       PasspointSDK.configure({
         apiKey: "pk_123",
-        environment: "https://custom.api.example.com/passpoint",
+        environment: "https://custom.api.example.com/api/inventory/v1/",
       });
 
       expect(mockNative.configure).toHaveBeenCalledWith(
         "pk_123",
-        "https://custom.api.example.com/passpoint",
+        "https://custom.api.example.com/api/inventory/v1",
         EapType.TLS,
+        null,
         null,
         null,
       );
     });
 
-    it("passes custom eapType and serverCaCertPem", () => {
+    it("passes custom eapType, serverCaCertPem, and presetId", () => {
       PasspointSDK.configure({
         apiKey: "pk_123",
         eapType: EapType.TTLS,
         serverCaCertPem: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----",
+        presetId: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
       });
 
       expect(mockNative.configure).toHaveBeenCalledWith(
@@ -86,6 +91,7 @@ describe("PasspointSDK", () => {
         EapType.TTLS,
         "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----",
         null,
+        "7c9e6679-7425-40de-944b-e07fc1f90ae7",
       );
     });
 
@@ -119,8 +125,9 @@ describe("PasspointSDK", () => {
 
       expect(mockNative.configure).toHaveBeenCalledWith(
         "pk_123",
-        "https://api.hib.nova.xyz/api/inventory/v1/passpoint/generate",
+        "https://api.prod.hib.nova.xyz/api/inventory/v1",
         EapType.TLS,
+        null,
         null,
         null,
       );
@@ -154,13 +161,13 @@ describe("PasspointSDK", () => {
     it("calls native install and parses the result", async () => {
       mockNative.install.mockResolvedValue(JSON.stringify({ success: true }));
 
-      const result = await sdk.install("user-abc");
+      const result = await sdk.install("sub-abc");
 
-      expect(mockNative.install).toHaveBeenCalledWith("user-abc");
+      expect(mockNative.install).toHaveBeenCalledWith("sub-abc");
       expect(result).toEqual({ success: true });
     });
 
-    it("throws INVALID_CONFIG for empty userIdentifier", async () => {
+    it("throws INVALID_CONFIG for empty subscriberId", async () => {
       await expect(sdk.install("")).rejects.toThrow(PasspointError);
 
       try {
@@ -177,7 +184,7 @@ describe("PasspointSDK", () => {
       });
 
       try {
-        await sdk.install("user-abc");
+        await sdk.install("sub-abc");
         fail("expected error");
       } catch (e) {
         expect(e).toBeInstanceOf(PasspointError);
@@ -234,7 +241,7 @@ describe("PasspointSDK", () => {
       const info = {
         isInstalled: true,
         expiresAt: "2027-01-15T00:00:00Z",
-        subject: "anonymous@user123.hib.nova.xyz",
+        subject: "anonymous@sub123.hib.nova.xyz",
         domain: "hib.nova.xyz",
         friendlyName: "Helium WiFi",
       };
@@ -257,6 +264,76 @@ describe("PasspointSDK", () => {
       const result = await sdk.getCertificateInfo();
       expect(result.isInstalled).toBe(false);
       expect(result.expiresAt).toBeNull();
+    });
+  });
+
+  describe("getRemoteStatus", () => {
+    let sdk: PasspointSDK;
+
+    beforeEach(() => {
+      sdk = PasspointSDK.configure({ apiKey: "pk_123" });
+    });
+
+    it("parses a RemoteProfileStatus response", async () => {
+      const status = {
+        subscriberId: "sub-001",
+        presetId: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        eapType: 13,
+        expiresAt: "2027-01-15T10:30:00Z",
+        active: true,
+      };
+      mockNative.getRemoteStatus.mockResolvedValue(JSON.stringify(status));
+
+      const result = await sdk.getRemoteStatus("sub-001");
+
+      expect(mockNative.getRemoteStatus).toHaveBeenCalledWith("sub-001");
+      expect(result).toEqual(status);
+    });
+
+    it("returns null when the native bridge reports no profile", async () => {
+      mockNative.getRemoteStatus.mockResolvedValue("null");
+
+      const result = await sdk.getRemoteStatus("sub-404");
+
+      expect(result).toBeNull();
+    });
+
+    it("throws INVALID_CONFIG for empty subscriberId", async () => {
+      await expect(sdk.getRemoteStatus("")).rejects.toThrow(PasspointError);
+
+      try {
+        await sdk.getRemoteStatus("  ");
+      } catch (e) {
+        expect((e as PasspointError).code).toBe(PasspointErrorCode.INVALID_CONFIG);
+      }
+    });
+
+    it("wraps API_UNAUTHORIZED native rejections", async () => {
+      mockNative.getRemoteStatus.mockRejectedValue({
+        code: "API_UNAUTHORIZED",
+        message: "API key rejected",
+      });
+
+      try {
+        await sdk.getRemoteStatus("sub-001");
+        fail("expected error");
+      } catch (e) {
+        expect((e as PasspointError).code).toBe(PasspointErrorCode.API_UNAUTHORIZED);
+      }
+    });
+
+    it("wraps NETWORK_ERROR native rejections", async () => {
+      mockNative.getRemoteStatus.mockRejectedValue({
+        code: "NETWORK_ERROR",
+        message: "timeout",
+      });
+
+      try {
+        await sdk.getRemoteStatus("sub-001");
+        fail("expected error");
+      } catch (e) {
+        expect((e as PasspointError).code).toBe(PasspointErrorCode.NETWORK_ERROR);
+      }
     });
   });
 

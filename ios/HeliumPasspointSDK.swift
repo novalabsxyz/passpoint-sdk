@@ -7,32 +7,34 @@ class HeliumPasspointSDK: NSObject {
 
   @objc static func requiresMainQueueSetup() -> Bool { false }
 
-  @objc(configure:endpoint:eapType:serverCaCertPem:keychainAccessGroup:)
+  @objc(configure:baseUrl:eapType:serverCaCertPem:keychainAccessGroup:presetId:)
   func configure(
     _ apiKey: String,
-    endpoint: String,
+    baseUrl: String,
     eapType: NSNumber,
     serverCaCertPem: String?,
-    keychainAccessGroup: String?
+    keychainAccessGroup: String?,
+    presetId: String?
   ) {
     manager.configure(
       apiKey: apiKey,
-      endpoint: endpoint,
+      baseUrl: baseUrl,
       eapType: eapType.intValue,
       serverCaCertPem: serverCaCertPem,
-      keychainAccessGroup: keychainAccessGroup
+      keychainAccessGroup: keychainAccessGroup,
+      presetId: presetId
     )
   }
 
   @objc(install:resolver:rejecter:)
   func install(
-    _ userIdentifier: String,
+    _ subscriberId: String,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     Task {
       do {
-        let result = try await manager.install(userIdentifier: userIdentifier)
+        let result = try await manager.install(subscriberId: subscriberId)
         let json = try JSONSerialization.data(withJSONObject: result)
         resolve(String(data: json, encoding: .utf8))
       } catch let error as PasspointSDKError {
@@ -66,6 +68,28 @@ class HeliumPasspointSDK: NSObject {
         resolve(String(data: json, encoding: .utf8))
       } catch {
         reject("UNKNOWN", "Failed to serialize certificate info", error)
+      }
+    }
+  }
+
+  @objc(getRemoteStatus:resolver:rejecter:)
+  func getRemoteStatus(
+    _ subscriberId: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    Task {
+      do {
+        if let status = try await manager.getRemoteStatus(subscriberId: subscriberId) {
+          let json = try JSONSerialization.data(withJSONObject: status)
+          resolve(String(data: json, encoding: .utf8))
+        } else {
+          resolve("null")
+        }
+      } catch let error as PasspointSDKError {
+        reject(error.errorCode, error.localizedDescription, error)
+      } catch {
+        reject("UNKNOWN", error.localizedDescription, error)
       }
     }
   }

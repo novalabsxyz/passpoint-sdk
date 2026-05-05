@@ -6,9 +6,10 @@ class PasspointManager {
 
   private let logger = Logger(subsystem: "com.helium.passpoint", category: "PasspointManager")
   private var apiKey: String?
-  private var endpoint: URL?
+  private var baseUrl: URL?
   private var eapType: Int = 13
   private var serverCaCertPem: String?
+  private var presetId: String?
 
   private lazy var keychain = KeychainManager(logger: logger)
   private lazy var csrGenerator = CSRGenerator(logger: logger)
@@ -38,22 +39,39 @@ class PasspointManager {
     }
   }
 
+  struct RemoteStatus: Decodable {
+    let subscriberId: String
+    let presetId: String
+    let eapType: Int
+    let expiresAt: String
+    let active: Bool
+
+    enum CodingKeys: String, CodingKey {
+      case subscriberId = "subscriber_id"
+      case presetId = "preset_id"
+      case eapType = "eap_type"
+      case expiresAt = "expires_at"
+      case active
+    }
+  }
+
   // MARK: - Configuration
 
-  func configure(apiKey: String, endpoint: String, eapType: Int, serverCaCertPem: String?, keychainAccessGroup: String? = nil) {
+  func configure(apiKey: String, baseUrl: String, eapType: Int, serverCaCertPem: String?, keychainAccessGroup: String? = nil, presetId: String? = nil) {
     self.apiKey = apiKey
-    self.endpoint = URL(string: endpoint)
+    self.baseUrl = URL(string: baseUrl)
     self.eapType = eapType
     self.serverCaCertPem = serverCaCertPem
+    self.presetId = presetId
     // Re-create keychain manager with the partner's access group
     self.keychain = KeychainManager(accessGroup: keychainAccessGroup, logger: logger)
-    logger.info("configured: endpoint=\(endpoint, privacy: .public), eapType=\(eapType, privacy: .public)")
+    logger.info("configured: baseUrl=\(baseUrl, privacy: .public), eapType=\(eapType, privacy: .public)")
   }
 
   // MARK: - Install
 
-  func install(userIdentifier: String) async throws -> [String: Any] {
-    guard let apiKey = apiKey, let endpoint = endpoint else {
+  func install(subscriberId: String) async throws -> [String: Any] {
+    guard let apiKey = apiKey, let baseUrl = baseUrl else {
       throw PasspointSDKError.notConfigured
     }
 
@@ -70,8 +88,8 @@ class PasspointManager {
       }
 
       // 2. Generate CSR
-      guard let domain = endpoint.host, let csr = csrGenerator.generate(
-        userIdentifier: userIdentifier,
+      guard let domain = baseUrl.host, let csr = csrGenerator.generate(
+        subscriberId: subscriberId,
         domain: domain,
         keyPair: keyPair
       ) else {
@@ -79,7 +97,12 @@ class PasspointManager {
       }
 
       // 3. Call API
-      let profile = try await fetchProfile(csr: csr, apiKey: apiKey, endpoint: endpoint)
+      let profile = try await fetchProfile(
+        csr: csr,
+        subscriberId: subscriberId,
+        apiKey: apiKey,
+        baseUrl: baseUrl
+      )
 
       // 4. Clean previous certs
       keychain.deleteAllCertificates()
@@ -154,10 +177,64 @@ class PasspointManager {
         "isInstalled": true,
         "expiresAt": isoExpiry as Any?,
         "subject": subject as Any?,
-        "domain": endpoint?.host as Any?,
+        "domain": baseUrl?.host as Any?,
         "friendlyName": "Helium WiFi" as Any?,
       ]
     #endif
+  }
+
+  // MARK: - getRemoteStatus
+
+  func getRemoteStatus(subscriberId: String) async throws -> [String: Any]? {
+    guard let apiKey = apiKey, let baseUrl = baseUrl else {
+      throw PasspointSDKError.notConfigured
+    }
+
+    var components = URLComponents(url: baseUrl.appendingPathComponent("preset/profile/status"), resolvingAgainstBaseURL: false)
+    components?.queryItems = [URLQueryItem(name: "subscriber_id", value: subscriberId)]
+    guard let url = components?.url else {
+      throw PasspointSDKError.apiError("Failed to construct status URL")
+    }
+
+    var request = URLRequest(url: url)
+    request.httpMethod = "GET"
+    request.setValue(apiKey, forHTTPHeaderField: "X-Helium-P-Api-Key")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+    let (data, response): (Data, URLResponse)
+    do {
+      (data, response) = try await URLSession.shared.data(for: request)
+    } catch {
+      throw PasspointSDKError.networkError(error.localizedDescription)
+    }
+
+    guard let http = response as? HTTPURLResponse else {
+      throw PasspointSDKError.apiError("Invalid response")
+    }
+
+    switch http.statusCode {
+    case 200...299:
+      let status: RemoteStatus
+      do {
+        status = try JSONDecoder().decode(RemoteStatus.self, from: data)
+      } catch {
+        throw PasspointSDKError.apiError("Failed to decode status: \(error.localizedDescription)")
+      }
+      return [
+        "subscriberId": status.subscriberId,
+        "presetId": status.presetId,
+        "eapType": status.eapType,
+        "expiresAt": status.expiresAt,
+        "active": status.active,
+      ]
+    case 404:
+      return nil
+    case 401, 403:
+      throw PasspointSDKError.apiUnauthorized
+    default:
+      let body = String(data: data, encoding: .utf8) ?? ""
+      throw PasspointSDKError.apiError("HTTP \(http.statusCode): \(body)")
+    }
   }
 
   // MARK: - Remove
@@ -182,8 +259,9 @@ class PasspointManager {
   func debug() async -> [String: Any] {
     var info: [String: Any] = [
       "configured": apiKey != nil,
-      "endpoint": endpoint?.absoluteString ?? "nil",
+      "baseUrl": baseUrl?.absoluteString ?? "nil",
       "eapType": eapType,
+      "presetId": presetId ?? "nil",
       "keychainAccessGroup": keychain.accessGroupDescription,
     ]
 
@@ -258,15 +336,24 @@ class PasspointManager {
     throw PasspointSDKError.certificateParseFailed("serverCA.crt not found in any bundle")
   }
 
-  private func fetchProfile(csr: String, apiKey: String, endpoint: URL) async throws -> Profile {
+  private func fetchProfile(csr: String, subscriberId: String, apiKey: String, baseUrl: URL) async throws -> Profile {
     logger.info("fetchProfile: sending CSR to API")
 
-    var request = URLRequest(url: endpoint)
+    let url = baseUrl.appendingPathComponent("preset/profile/generate")
+    var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue(apiKey, forHTTPHeaderField: "X-Helium-P-Api-Key")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.httpBody = try JSONSerialization.data(
-      withJSONObject: ["csr": csr, "type": eapType])
+
+    var body: [String: Any] = [
+      "type": eapType,
+      "subscriber_id": subscriberId,
+      "csr": csr,
+    ]
+    if let presetId = presetId, !presetId.isEmpty {
+      body["preset_id"] = presetId
+    }
+    request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
     let (data, response): (Data, URLResponse)
     do {

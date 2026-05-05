@@ -14,12 +14,12 @@ export type { UsePasspointResult };
  * updates `isInstalled` everywhere.
  *
  * ```tsx
- * function WifiScreen({ userId }) {
+ * function WifiScreen({ subscriberId }) {
  *   const { isInstalled, install, remove, isLoading, error } = usePasspoint();
  *
  *   return isInstalled
  *     ? <Button onPress={remove}>Remove WiFi Profile</Button>
- *     : <Button onPress={() => install(userId)}>Enable WiFi Offload</Button>;
+ *     : <Button onPress={() => install(subscriberId)}>Enable WiFi Offload</Button>;
  * }
  * ```
  */

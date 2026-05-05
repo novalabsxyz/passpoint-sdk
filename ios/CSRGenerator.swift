@@ -11,11 +11,11 @@ class CSRGenerator {
     self.logger = logger
   }
 
-  func generate(userIdentifier: String, domain: String, keyPair: SecKeyPair) -> String? {
+  func generate(subscriberId: String, domain: String, keyPair: SecKeyPair) -> String? {
     #if !targetEnvironment(simulator)
-      logger.info("generateCSR: for user \(userIdentifier, privacy: .public)")
+      logger.info("generateCSR: for subscriber \(subscriberId, privacy: .public)")
 
-      let cn = "anonymous@\(userIdentifier).\(domain)"
+      let cn = "anonymous@\(subscriberId).\(domain)"
 
       guard let publicKeyData = SecKeyCopyExternalRepresentation(keyPair.publicKey, nil) as Data? else {
         logger.warning("generateCSR: failed to export public key")

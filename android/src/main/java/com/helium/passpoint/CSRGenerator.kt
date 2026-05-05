@@ -9,10 +9,10 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder
 
 class CSRGenerator {
 
-  fun generate(userIdentifier: String, domain: String, keyPair: KeyPair): String {
+  fun generate(subscriberId: String, domain: String, keyPair: KeyPair): String {
     ensureBouncyCastle()
 
-    val subject = X500Principal("CN=anonymous@${userIdentifier}.${domain}")
+    val subject = X500Principal("CN=anonymous@${subscriberId}.${domain}")
     val builder = JcaPKCS10CertificationRequestBuilder(subject, keyPair.public)
     val signer = JcaContentSignerBuilder("SHA256withRSA").build(keyPair.private)
     val csr = builder.build(signer)

@@ -66,12 +66,12 @@ import {
   PasspointErrorCode,
 } from "@helium/passpoint-sdk";
 
-function WifiScreen({ userId }) {
+function WifiScreen({ subscriberId }) {
   const { isInstalled, install, remove, isLoading, error } = usePasspoint();
 
   const handleInstall = async () => {
     try {
-      await install(userId);
+      await install(subscriberId);
     } catch (e) {
       if (e instanceof PasspointError) {
         if (e.code === PasspointErrorCode.PERMISSION_DENIED) {
@@ -93,6 +93,16 @@ function WifiScreen({ userId }) {
 }
 ```
 
+## Subscriber IDs
+
+Every call to `install()` and `getRemoteStatus()` takes a `subscriberId` — an opaque string you pick to identify the subscriber in your own system. The SDK doesn't interpret or validate it beyond requiring a non-empty string.
+
+Rules of thumb:
+
+- Use the **same `subscriberId`** for `install()` and any later `getRemoteStatus()` call. The server associates the issued certificate with that ID, so a mismatch will look like "no profile installed."
+- Re-calling `install()` with the same `subscriberId` revokes the previous certificate for that subscriber and issues a fresh one.
+- `subscriberId` should be stable per-subscriber across reinstalls if you want server-side continuity (e.g. stats, revocation). If you don't care, any unique string works.
+
 ## API Reference
 
 ### `<PasspointProvider config={...}>`
@@ -102,10 +112,11 @@ Initializes the SDK. Wrap your app (or relevant subtree) in this provider.
 ```ts
 interface PasspointConfig {
   apiKey: string; // required
-  environment?: string; // 'production' (default) | 'staging' | 'development' | custom URL
+  environment?: string; // 'production' (default) | 'staging' | 'development' | custom base URL
   eapType?: EapType; // EapType.TLS (default) | EapType.TTLS | EapType.PEAP
   serverCaCertPem?: string; // custom CA cert PEM (optional, uses bundled ISRG Root X1)
   keychainAccessGroup?: string; // iOS only: '<TEAM_ID>.com.apple.networkextensionsharing'
+  presetId?: string; // optional, only needed if your partner account has multiple EAP-TLS presets
 }
 ```
 
@@ -117,8 +128,9 @@ React hook for all passpoint operations. Must be inside `<PasspointProvider>`.
 interface UsePasspointResult {
   isInstalled: boolean | null; // null while loading
   certificateInfo: CertificateInfo | null;
-  install: (userId: string) => Promise<InstallResult>;
+  install: (subscriberId: string) => Promise<InstallResult>;
   remove: () => Promise<RemoveResult>;
+  getRemoteStatus: (subscriberId: string) => Promise<RemoteProfileStatus | null>;
   refresh: () => Promise<void>;
   isLoading: boolean;
   error: PasspointError | null;
@@ -133,11 +145,21 @@ For non-React usage or manual control:
 import { PasspointSDK } from "@helium/passpoint-sdk";
 
 const sdk = PasspointSDK.configure({ apiKey: "your-key" });
-await sdk.install("user-123");
-await sdk.isInstalled();
+await sdk.install("sub-123");
+await sdk.isInstalled();                 // local keychain/keystore check
 await sdk.getCertificateInfo();
+await sdk.getRemoteStatus("sub-123");    // server-side status (network call)
 await sdk.remove();
 ```
+
+### `isInstalled()` vs `getRemoteStatus()`
+
+| Method              | Checks                    | Network | Returns                                   |
+| ------------------- | ------------------------- | ------- | ----------------------------------------- |
+| `isInstalled()`     | Local keychain / keystore | No      | `boolean`                                 |
+| `getRemoteStatus()` | Helium inventory API      | Yes     | `RemoteProfileStatus` or `null` (no profile) |
+
+Use `isInstalled()` for fast UI checks (e.g. rendering "Install" vs "Remove"). Use `getRemoteStatus()` to reconcile against the server — for example, to detect that a profile was revoked from another device.
 
 ### `CertificateInfo`
 
@@ -151,13 +173,27 @@ interface CertificateInfo {
 }
 ```
 
+### `RemoteProfileStatus`
+
+Returned by `getRemoteStatus()` when the server has an active profile for the subscriber.
+
+```ts
+interface RemoteProfileStatus {
+  subscriberId: string;
+  presetId: string;
+  eapType: number;       // 13 = EAP-TLS
+  expiresAt: string;     // ISO 8601
+  active: boolean;       // false if the cert has expired
+}
+```
+
 ## Error Handling
 
 All SDK methods throw `PasspointError` with a typed `code` property:
 
 ```ts
 try {
-  await install(userId);
+  await install(subscriberId);
 } catch (e) {
   if (e instanceof PasspointError) {
     switch (e.code) {
@@ -212,18 +248,20 @@ try {
 
 ### Environments
 
+`environment` selects the Helium inventory API base URL. The SDK appends `/preset/profile/generate` and `/preset/profile/status` to it.
+
 ```ts
-// Production (default)
+// Production (default) — https://api.prod.hib.nova.xyz/api/inventory/v1
 { apiKey: 'pk_xxx' }
 
-// Development
+// Development — https://api.dev.hib.nova.xyz/api/inventory/v1
 { apiKey: 'pk_xxx', environment: 'development' }
 
-// Staging
+// Staging — https://api.staging.hib.nova.xyz/api/inventory/v1
 { apiKey: 'pk_xxx', environment: 'staging' }
 
-// Custom endpoint
-{ apiKey: 'pk_xxx', environment: 'https://your-api.example.com/passpoint/generate' }
+// Custom base URL (must end at /api/inventory/v1, no trailing endpoint path)
+{ apiKey: 'pk_xxx', environment: 'https://your-api.example.com/api/inventory/v1' }
 ```
 
 ### Custom Server CA
@@ -236,6 +274,19 @@ If you're using a custom RADIUS infrastructure with a different CA:
   serverCaCertPem: '-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----',
 }
 ```
+
+### Preset ID
+
+If your partner account has more than one EAP-TLS preset, supply the UUID of the one you want the SDK to use:
+
+```ts
+{
+  apiKey: 'pk_xxx',
+  presetId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+}
+```
+
+Partners with a single preset can leave this unset.
 
 ## Requirements
 

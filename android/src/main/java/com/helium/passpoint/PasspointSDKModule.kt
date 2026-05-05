@@ -19,13 +19,20 @@ class PasspointSDKModule(reactContext: ReactApplicationContext) :
   private val mainHandler = Handler(Looper.getMainLooper())
 
   @ReactMethod
-  fun configure(apiKey: String, endpoint: String, eapType: Int, serverCaCertPem: String?, keychainAccessGroup: String?) {
+  fun configure(
+    apiKey: String,
+    baseUrl: String,
+    eapType: Int,
+    serverCaCertPem: String?,
+    keychainAccessGroup: String?,
+    presetId: String?,
+  ) {
     // keychainAccessGroup is iOS-only, ignored on Android
-    manager.configure(apiKey, endpoint, eapType, serverCaCertPem)
+    manager.configure(apiKey, baseUrl, eapType, serverCaCertPem, presetId)
   }
 
   @ReactMethod
-  fun install(userIdentifier: String, promise: Promise) {
+  fun install(subscriberId: String, promise: Promise) {
     // Check location permission before proceeding
     val activity = reactApplicationContext.currentActivity
     if (activity != null &&
@@ -39,7 +46,7 @@ class PasspointSDKModule(reactContext: ReactApplicationContext) :
 
     runAsync {
       try {
-        val result = manager.install(userIdentifier)
+        val result = manager.install(subscriberId)
         resolveOnMain(promise, result.toString())
       } catch (e: PasspointSDKException) {
         rejectOnMain(promise, e.errorCode, e.message ?: "Install failed")
@@ -68,6 +75,20 @@ class PasspointSDKModule(reactContext: ReactApplicationContext) :
         resolveOnMain(promise, info.toString())
       } catch (e: Exception) {
         rejectOnMain(promise, "UNKNOWN", e.message ?: "Failed to get certificate info")
+      }
+    }
+  }
+
+  @ReactMethod
+  fun getRemoteStatus(subscriberId: String, promise: Promise) {
+    runAsync {
+      try {
+        val status = manager.getRemoteStatus(subscriberId)
+        resolveOnMain(promise, status?.toString() ?: "null")
+      } catch (e: PasspointSDKException) {
+        rejectOnMain(promise, e.errorCode, e.message ?: "Remote status failed")
+      } catch (e: Exception) {
+        rejectOnMain(promise, "UNKNOWN", e.message ?: "Remote status failed")
       }
     }
   }

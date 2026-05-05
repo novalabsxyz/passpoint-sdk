@@ -10,6 +10,7 @@ export type {
   CertificateInfo,
   InstallResult,
   PasspointConfig,
+  RemoteProfileStatus,
   RemoveResult,
 } from "./types";
 // Enums and errors

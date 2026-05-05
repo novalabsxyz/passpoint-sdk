@@ -8,8 +8,8 @@ export interface PasspointConfig {
 
   /**
    * API environment. Defaults to `'production'`.
-   * Use `'staging'` or `'development'` for testing, or pass a full URL
-   * for a custom endpoint.
+   * Use `'staging'` or `'development'` for testing, or pass a full base URL
+   * (ending at `/api/inventory/v1`, with no trailing path) for a custom deployment.
    */
   environment?: "production" | "staging" | "development" | (string & {});
 
@@ -35,6 +35,12 @@ export interface PasspointConfig {
    * which may cause Passpoint profile installation to fail on iOS.
    */
   keychainAccessGroup?: string;
+
+  /**
+   * Optional preset UUID. Required only if your partner account has more than
+   * one EAP-TLS preset configured. Single-preset partners can leave this unset.
+   */
+  presetId?: string;
 }
 
 /** EAP authentication types supported by the SDK. */
@@ -120,7 +126,7 @@ export enum PasspointErrorCode {
   UNKNOWN = "UNKNOWN",
 }
 
-/** Information about the currently installed Passpoint certificate. */
+/** Information about the certificate currently installed on this device. */
 export interface CertificateInfo {
   /** Whether a Passpoint profile is currently installed and active. */
   isInstalled: boolean;
@@ -132,6 +138,23 @@ export interface CertificateInfo {
   domain: string | null;
   /** Human-readable name of the profile, or `null` if not installed. */
   friendlyName: string | null;
+}
+
+/**
+ * Server-side status of a subscriber's profile, as returned by
+ * `GET /preset/profile/status`.
+ */
+export interface RemoteProfileStatus {
+  /** Subscriber identifier the profile was issued to. */
+  subscriberId: string;
+  /** UUID of the preset used to generate the profile. */
+  presetId: string;
+  /** EAP type as defined by IANA (13 = EAP-TLS). */
+  eapType: number;
+  /** Certificate expiration (ISO 8601). */
+  expiresAt: string;
+  /** Whether the certificate has not yet expired. */
+  active: boolean;
 }
 
 /** Result of a successful `install()` call. */

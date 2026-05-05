@@ -13,6 +13,7 @@ import type {
   CertificateInfo,
   InstallResult,
   PasspointConfig,
+  RemoteProfileStatus,
   RemoveResult,
 } from "./types";
 
@@ -23,13 +24,19 @@ export interface UsePasspointResult {
   /** Detailed certificate info. `null` while loading or if not installed. */
   certificateInfo: CertificateInfo | null;
 
-  /** Install a Passpoint profile for the given user. */
-  install: (userIdentifier: string) => Promise<InstallResult>;
+  /** Install a Passpoint profile for the given subscriber. */
+  install: (subscriberId: string) => Promise<InstallResult>;
 
   /** Remove the installed Passpoint profile and clean up stored certificates. */
   remove: () => Promise<RemoveResult>;
 
-  /** Manually refresh the installation status and certificate info. */
+  /**
+   * Query the server for the current profile status of a subscriber.
+   * Returns `null` if the server has no active profile for this subscriber.
+   */
+  getRemoteStatus: (subscriberId: string) => Promise<RemoteProfileStatus | null>;
+
+  /** Manually refresh the local installation status and certificate info. */
   refresh: () => Promise<void>;
 
   /** Whether an `install` or `remove` operation is currently in progress. */
@@ -66,7 +73,8 @@ export interface PasspointProviderProps {
  * ```
  */
 export function PasspointProvider({ config, children }: PasspointProviderProps) {
-  const { apiKey, environment, eapType, serverCaCertPem, keychainAccessGroup } = config;
+  const { apiKey, environment, eapType, serverCaCertPem, keychainAccessGroup, presetId } =
+    config;
 
   const sdk = useMemo(() => {
     return PasspointSDK.configure({
@@ -75,8 +83,9 @@ export function PasspointProvider({ config, children }: PasspointProviderProps) 
       eapType,
       serverCaCertPem,
       keychainAccessGroup,
+      presetId,
     });
-  }, [apiKey, environment, eapType, serverCaCertPem, keychainAccessGroup]);
+  }, [apiKey, environment, eapType, serverCaCertPem, keychainAccessGroup, presetId]);
 
   const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
   const [certificateInfo, setCertificateInfo] = useState<CertificateInfo | null>(null);
@@ -117,11 +126,11 @@ export function PasspointProvider({ config, children }: PasspointProviderProps) 
   }, [refresh]);
 
   const install = useCallback(
-    async (userIdentifier: string): Promise<InstallResult> => {
+    async (subscriberId: string): Promise<InstallResult> => {
       setIsLoading(true);
       setError(null);
       try {
-        const result = await sdk.install(userIdentifier);
+        const result = await sdk.install(subscriberId);
         setIsInstalled(true);
         await refresh();
         return result;
@@ -153,17 +162,40 @@ export function PasspointProvider({ config, children }: PasspointProviderProps) 
     }
   }, [sdk]);
 
+  const getRemoteStatus = useCallback(
+    async (subscriberId: string): Promise<RemoteProfileStatus | null> => {
+      try {
+        return await sdk.getRemoteStatus(subscriberId);
+      } catch (e) {
+        const passpointError = PasspointError.fromNative(e);
+        setError(passpointError);
+        throw passpointError;
+      }
+    },
+    [sdk],
+  );
+
   const value = useMemo(
     () => ({
       isInstalled,
       certificateInfo,
       install,
       remove,
+      getRemoteStatus,
       refresh,
       isLoading,
       error,
     }),
-    [isInstalled, certificateInfo, install, remove, refresh, isLoading, error],
+    [
+      isInstalled,
+      certificateInfo,
+      install,
+      remove,
+      getRemoteStatus,
+      refresh,
+      isLoading,
+      error,
+    ],
   );
 
   return <PasspointContext.Provider value={value}>{children}</PasspointContext.Provider>;

@@ -98,7 +98,7 @@ describe("usePasspoint", () => {
 
       let installResult: any;
       await act(async () => {
-        installResult = await result.current.install("user-abc");
+        installResult = await result.current.install("sub-abc");
       });
 
       expect(installResult).toEqual({ success: true });
@@ -121,7 +121,7 @@ describe("usePasspoint", () => {
 
       await act(async () => {
         try {
-          await result.current.install("user-abc");
+          await result.current.install("sub-abc");
         } catch {
           // expected
         }
@@ -149,7 +149,7 @@ describe("usePasspoint", () => {
 
       await act(async () => {
         try {
-          await result.current.install("user-abc");
+          await result.current.install("sub-abc");
         } catch {
           // expected
         }
@@ -163,7 +163,7 @@ describe("usePasspoint", () => {
       mockNative.getCertificateInfo.mockResolvedValue(CERT_INFO_INSTALLED);
 
       await act(async () => {
-        await result.current.install("user-abc");
+        await result.current.install("sub-abc");
       });
 
       expect(result.current.error).toBeNull();
@@ -323,6 +323,79 @@ describe("usePasspoint", () => {
       expect(mockNative.isInstalled).not.toHaveBeenCalled();
 
       addEventSpy.mockRestore();
+    });
+  });
+
+  describe("getRemoteStatus", () => {
+    it("returns parsed status from the native bridge", async () => {
+      mockNative.getRemoteStatus.mockResolvedValue(
+        JSON.stringify({
+          subscriberId: "sub-001",
+          presetId: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+          eapType: 13,
+          expiresAt: "2027-01-15T10:30:00Z",
+          active: true,
+        }),
+      );
+
+      const { result } = renderHook(() => usePasspoint(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.isInstalled).toBe(false);
+      });
+
+      let status: Awaited<ReturnType<typeof result.current.getRemoteStatus>> | null =
+        null;
+      await act(async () => {
+        status = await result.current.getRemoteStatus("sub-001");
+      });
+
+      expect(mockNative.getRemoteStatus).toHaveBeenCalledWith("sub-001");
+      expect(status).toEqual({
+        subscriberId: "sub-001",
+        presetId: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        eapType: 13,
+        expiresAt: "2027-01-15T10:30:00Z",
+        active: true,
+      });
+    });
+
+    it("returns null when the server has no profile", async () => {
+      mockNative.getRemoteStatus.mockResolvedValue("null");
+
+      const { result } = renderHook(() => usePasspoint(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.isInstalled).toBe(false);
+      });
+
+      let status: Awaited<ReturnType<typeof result.current.getRemoteStatus>> | null =
+        null;
+      await act(async () => {
+        status = await result.current.getRemoteStatus("sub-404");
+      });
+
+      expect(status).toBeNull();
+    });
+
+    it("sets error state and rethrows on native rejection", async () => {
+      mockNative.getRemoteStatus.mockRejectedValue({
+        code: "API_UNAUTHORIZED",
+        message: "rejected",
+      });
+
+      const { result } = renderHook(() => usePasspoint(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.isInstalled).toBe(false);
+      });
+
+      await act(async () => {
+        try {
+          await result.current.getRemoteStatus("sub-001");
+        } catch {
+          // expected
+        }
+      });
+
+      expect(result.current.error?.code).toBe(PasspointErrorCode.API_UNAUTHORIZED);
     });
   });
 });

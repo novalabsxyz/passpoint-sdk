@@ -5,18 +5,19 @@ import type {
   CertificateInfo,
   InstallResult,
   PasspointConfig,
+  RemoteProfileStatus,
   RemoveResult,
 } from "./types";
 import { EapType, PasspointErrorCode } from "./types";
 
 const ENVIRONMENTS: Record<string, string> = {
-  production: "https://api.hib.nova.xyz/api/inventory/v1/passpoint/generate",
-  staging: "https://api.staging.hib.nova.xyz/api/inventory/v1/passpoint/generate",
-  development: "https://api.dev.hib.nova.xyz/api/inventory/v1/passpoint/generate",
+  production: "https://api.prod.hib.nova.xyz/api/inventory/v1",
+  development: "https://api-dev.dev.hib.nova.xyz/api/inventory/v1",
+  poc: "https://api.dev.hib.nova.xyz/api/inventory/v1",
 };
 
-function resolveEndpoint(env: string): string {
-  if (env.startsWith("http")) return env;
+function resolveBaseUrl(env: string): string {
+  if (env.startsWith("http")) return env.replace(/\/+$/, "");
   return ENVIRONMENTS[env] ?? ENVIRONMENTS.production;
 }
 
@@ -28,7 +29,7 @@ function resolveEndpoint(env: string): string {
  *
  * ```typescript
  * const sdk = PasspointSDK.configure({ apiKey: 'your-key' });
- * await sdk.install('user-123');
+ * await sdk.install('subscriber-123');
  * ```
  */
 export class PasspointSDK {
@@ -63,15 +64,16 @@ export class PasspointSDK {
     const instance = PasspointSDK.instance ?? new PasspointSDK();
     PasspointSDK.instance = instance;
 
-    const endpoint = resolveEndpoint(config.environment ?? "production");
+    const baseUrl = resolveBaseUrl(config.environment ?? "production");
     const eapType = config.eapType ?? EapType.TLS;
 
     NativePasspointSDK.configure(
       config.apiKey,
-      endpoint,
+      baseUrl,
       eapType,
       config.serverCaCertPem ?? null,
       config.keychainAccessGroup ?? null,
+      config.presetId ?? null,
     );
 
     instance.configured = true;
@@ -94,26 +96,28 @@ export class PasspointSDK {
   }
 
   /**
-   * Install a Passpoint WiFi profile for the given user.
+   * Install a Passpoint WiFi profile for the given subscriber.
    *
    * This generates an RSA keypair, creates a CSR, sends it to the Helium
    * Passpoint API, and installs the returned certificate as a Passpoint
    * (Hotspot 2.0) WiFi profile on the device.
    *
-   * @param userIdentifier - Unique identifier for this subscriber.
+   * @param subscriberId - Partner-defined subscriber identifier. Opaque to the
+   *   SDK; the server uses it to associate this certificate with the subscriber
+   *   and will revoke any prior certificate issued for the same `subscriberId`.
    */
-  async install(userIdentifier: string): Promise<InstallResult> {
+  async install(subscriberId: string): Promise<InstallResult> {
     this.ensureConfigured();
 
-    if (!userIdentifier || userIdentifier.trim().length === 0) {
+    if (!subscriberId || subscriberId.trim().length === 0) {
       throw new PasspointError(
         PasspointErrorCode.INVALID_CONFIG,
-        "userIdentifier is required and must be a non-empty string.",
+        "subscriberId is required and must be a non-empty string.",
       );
     }
 
     try {
-      const json = await NativePasspointSDK.install(userIdentifier);
+      const json = await NativePasspointSDK.install(subscriberId);
       return JSON.parse(json) as InstallResult;
     } catch (error) {
       throw PasspointError.fromNative(error);
@@ -121,7 +125,10 @@ export class PasspointSDK {
   }
 
   /**
-   * Check if a Passpoint profile is currently installed on this device.
+   * Check if a Passpoint profile is currently installed on this device
+   * (local keychain/keystore check — does not contact the server).
+   *
+   * Use {@link getRemoteStatus} to reconcile with server-side state.
    */
   async isInstalled(): Promise<boolean> {
     this.ensureConfigured();
@@ -134,7 +141,7 @@ export class PasspointSDK {
   }
 
   /**
-   * Get detailed information about the installed certificate.
+   * Get detailed information about the locally installed certificate.
    *
    * Returns `{ isInstalled: false, ... }` if no profile is installed
    * (does not throw).
@@ -145,6 +152,39 @@ export class PasspointSDK {
     try {
       const json = await NativePasspointSDK.getCertificateInfo();
       return JSON.parse(json) as CertificateInfo;
+    } catch (error) {
+      throw PasspointError.fromNative(error);
+    }
+  }
+
+  /**
+   * Query the Helium API for the server-side profile status of a subscriber.
+   *
+   * Unlike {@link isInstalled}, this hits the network and reflects the
+   * server's view — useful for detecting revocation or verifying that an
+   * install succeeded end-to-end.
+   *
+   * @param subscriberId - The same identifier passed to {@link install}.
+   * @returns The server's profile record, or `null` if the server has no
+   *   active profile for this subscriber (HTTP 404).
+   * @throws {PasspointError} on network or API errors.
+   */
+  async getRemoteStatus(
+    subscriberId: string,
+  ): Promise<RemoteProfileStatus | null> {
+    this.ensureConfigured();
+
+    if (!subscriberId || subscriberId.trim().length === 0) {
+      throw new PasspointError(
+        PasspointErrorCode.INVALID_CONFIG,
+        "subscriberId is required and must be a non-empty string.",
+      );
+    }
+
+    try {
+      const json = await NativePasspointSDK.getRemoteStatus(subscriberId);
+      const parsed = JSON.parse(json);
+      return parsed as RemoteProfileStatus | null;
     } catch (error) {
       throw PasspointError.fromNative(error);
     }

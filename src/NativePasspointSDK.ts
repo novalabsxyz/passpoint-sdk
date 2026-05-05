@@ -10,31 +10,43 @@ export interface Spec {
   /**
    * Store SDK configuration on the native side.
    * Must be called before any other method.
+   *
+   * `baseUrl` is the inventory API base (e.g. `https://api.prod.hib.nova.xyz/api/inventory/v1`);
+   * the native layer appends `/preset/profile/generate` and `/preset/profile/status`.
    */
   configure(
     apiKey: string,
-    endpoint: string,
+    baseUrl: string,
     eapType: number,
     serverCaCertPem: string | null,
     keychainAccessGroup: string | null,
+    presetId: string | null,
   ): void;
 
   /**
    * Generate keypair, create CSR, call API, install Passpoint profile.
    * @returns JSON-encoded InstallResult
    */
-  install(userIdentifier: string): Promise<string>;
+  install(subscriberId: string): Promise<string>;
 
   /**
-   * Check if a Passpoint profile is currently installed.
+   * Check if a Passpoint profile is currently installed locally
+   * (keychain on iOS, WifiManager on Android).
    */
   isInstalled(): Promise<boolean>;
 
   /**
-   * Get details about the installed certificate.
+   * Get details about the locally installed certificate.
    * @returns JSON-encoded CertificateInfo
    */
   getCertificateInfo(): Promise<string>;
+
+  /**
+   * Query the server for the current profile status of a subscriber.
+   * @returns JSON-encoded RemoteProfileStatus, or the string `"null"` when the
+   *          server has no active profile for this subscriber (HTTP 404).
+   */
+  getRemoteStatus(subscriberId: string): Promise<string>;
 
   /**
    * Remove the local Passpoint profile and clean up stored certificates.
