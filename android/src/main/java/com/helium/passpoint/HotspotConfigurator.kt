@@ -72,8 +72,14 @@ class HotspotConfigurator(private val context: Context) {
     val clientChain = (listOf(config.clientCert) + config.caCerts).toTypedArray()
     val fingerprint = MessageDigest.getInstance("SHA-256").digest(config.clientCert.encoded)
 
+    // Android emits the EAP-TLS outer identity as anonymous@<Credential.realm>.
+    // The AAA server matches the session against the client certificate's
+    // subject CN (anonymous@<subscriberId>.<naiRealm>), so the realm must be the
+    // CN's realm portion, NOT the HomeSP FQDN (domainName). iOS derives the outer
+    // identity from the cert automatically; we mirror that here by reading the
+    // realm out of the issued certificate.
     val credential = Credential().apply {
-      realm = config.domainName
+      realm = realmFromCert(config.clientCert, config.domainName)
       try {
         val method = this.javaClass.getMethod(
           "setCheckAaaServerCertStatus", Boolean::class.javaPrimitiveType
@@ -103,6 +109,26 @@ class HotspotConfigurator(private val context: Context) {
     }
 
     return passpointConfig
+  }
+
+  /**
+   * The EAP-TLS outer identity Android emits is anonymous@<Credential.realm>.
+   * For the AAA server to match it to the client certificate, the realm must be
+   * the realm portion of the cert's subject CN (anonymous@<subscriberId>.<realm>),
+   * i.e. everything after the '@'. Falls back to [fallback] (the HomeSP FQDN) if
+   * the CN can't be parsed.
+   */
+  private fun realmFromCert(cert: X509Certificate, fallback: String): String {
+    return try {
+      val dn = cert.subjectX500Principal.name
+      val cn = Regex("(?:^|,)\\s*CN=([^,]+)").find(dn)?.groupValues?.get(1)?.trim()
+      val realm = cn?.substringAfter('@', "")?.takeIf { it.isNotBlank() } ?: fallback
+      Log.d(tag, "realmFromCert: realm=$realm")
+      realm
+    } catch (e: Exception) {
+      Log.w(tag, "realmFromCert: failed to parse cert CN, using fallback realm", e)
+      fallback
+    }
   }
 
   private fun applyPasspoint(config: PasspointConfiguration) {
