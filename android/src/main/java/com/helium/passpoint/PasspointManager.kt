@@ -18,13 +18,19 @@ class PasspointManager(private val context: Context) {
   private var baseUrl: String? = null
   private var eapType: Int = 13
   private var serverCaCertPem: String? = null
-  private var domain: String? = null
   private var presetId: String? = null
 
   private val keyStore = KeyStoreManager(context)
   private val csrGenerator = CSRGenerator()
   private val certStore = CertificateStore()
   private val hotspot by lazy { HotspotConfigurator(context) }
+
+  // Persisted profile metadata so getCertificateInfo() reports the
+  // domain/friendly name actually used for the installed Passpoint profile,
+  // not the inventory API host.
+  private val prefs = context.getSharedPreferences("helium_passpoint_manager", Context.MODE_PRIVATE)
+  private val PREF_DOMAIN = "profile_domain"
+  private val PREF_FRIENDLY_NAME = "profile_friendly_name"
 
   data class Profile(
     val friendlyName: String,
@@ -44,8 +50,7 @@ class PasspointManager(private val context: Context) {
     this.eapType = eapType
     this.serverCaCertPem = serverCaCertPem
     this.presetId = presetId
-    this.domain = try { URL(baseUrl).host } catch (_: Exception) { null }
-    Log.d(tag, "configured: baseUrl=$baseUrl, eapType=$eapType, domain=$domain")
+    Log.d(tag, "configured: baseUrl=$baseUrl, eapType=$eapType")
   }
 
   // MARK: - Install
@@ -97,11 +102,20 @@ class PasspointManager(private val context: Context) {
     hotspot.install(HotspotConfigurator.ProfileConfig(
       domainName = profile.domainName,
       friendlyName = profile.friendlyName,
+      naiRealmNames = profile.naiRealmNames,
+      trustedServerNames = profile.trustedServerNames,
       clientCert = clientCert,
       caCerts = caCerts,
       serverCaCert = serverCaCert,
       keyPair = keyPair,
     ))
+
+    // 8. Persist profile metadata for getCertificateInfo()
+    prefs.edit()
+      .putString(PREF_DOMAIN, profile.domainName)
+      .putString(PREF_FRIENDLY_NAME, profile.friendlyName)
+      .apply()
+    Log.d(tag, "install: stored profile domain=${profile.domainName}")
 
     return JSONObject().put("success", true)
   }
@@ -128,11 +142,13 @@ class PasspointManager(private val context: Context) {
 
     // We don't have direct access to the installed cert on Android
     // (it's inside the PasspointConfiguration), so we return what we know.
+    val storedDomain = prefs.getString(PREF_DOMAIN, null)
+    val storedFriendlyName = prefs.getString(PREF_FRIENDLY_NAME, null)
     result.put("isInstalled", true)
     result.put("expiresAt", JSONObject.NULL)
     result.put("subject", JSONObject.NULL)
-    result.put("domain", domain ?: JSONObject.NULL)
-    result.put("friendlyName", "Helium WiFi")
+    result.put("domain", storedDomain ?: JSONObject.NULL)
+    result.put("friendlyName", storedFriendlyName ?: JSONObject.NULL)
     return result
   }
 
@@ -192,6 +208,10 @@ class PasspointManager(private val context: Context) {
 
     hotspot.removeAll()
     keyStore.deleteKeyPair()
+    prefs.edit()
+      .remove(PREF_DOMAIN)
+      .remove(PREF_FRIENDLY_NAME)
+      .apply()
 
     return JSONObject().put("success", true)
   }
@@ -204,7 +224,8 @@ class PasspointManager(private val context: Context) {
     info.put("baseUrl", baseUrl ?: JSONObject.NULL)
     info.put("eapType", eapType)
     info.put("presetId", presetId ?: JSONObject.NULL)
-    info.put("domain", domain ?: JSONObject.NULL)
+    info.put("profileDomain", prefs.getString(PREF_DOMAIN, null) ?: JSONObject.NULL)
+    info.put("profileFriendlyName", prefs.getString(PREF_FRIENDLY_NAME, null) ?: JSONObject.NULL)
     info.put("platform", "android")
     info.put("apiLevel", android.os.Build.VERSION.SDK_INT)
 

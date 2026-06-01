@@ -22,6 +22,35 @@ interface Props {
   userId: string;
 }
 
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | boolean | null | undefined;
+}) {
+  const display =
+    value === null || value === undefined
+      ? "—"
+      : typeof value === "boolean"
+        ? value
+          ? "true"
+          : "false"
+        : value;
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text
+        style={styles.infoValue}
+        numberOfLines={1}
+        ellipsizeMode="middle"
+      >
+        {display}
+      </Text>
+    </View>
+  );
+}
+
 export function WifiSetupScreen({ userId }: Props) {
   const {
     isInstalled,
@@ -107,16 +136,19 @@ export function WifiSetupScreen({ userId }: Props) {
               You're connected to Helium WiFi hotspots automatically.
             </Text>
 
-            {certificateInfo?.expiresAt && (
-              <Text style={styles.detail}>
-                Certificate expires: {certificateInfo.expiresAt}
-              </Text>
-            )}
-            {certificateInfo?.domain && (
-              <Text style={styles.detail}>
-                Domain: {certificateInfo.domain}
-              </Text>
-            )}
+            <View style={styles.infoCard}>
+              <InfoRow
+                label="isInstalled"
+                value={certificateInfo?.isInstalled}
+              />
+              <InfoRow label="domain" value={certificateInfo?.domain} />
+              <InfoRow
+                label="friendlyName"
+                value={certificateInfo?.friendlyName}
+              />
+              <InfoRow label="subject" value={certificateInfo?.subject} />
+              <InfoRow label="expiresAt" value={certificateInfo?.expiresAt} />
+            </View>
 
             <TouchableOpacity
               style={[styles.button, styles.dangerButton]}
@@ -192,9 +224,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 24,
   },
-  detail: {
+  infoCard: {
+    width: "100%",
+    backgroundColor: "#f8f8f8",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e5e5e5",
+    gap: 12,
+  },
+  infoLabel: {
     fontSize: 13,
-    color: "#999",
+    color: "#666",
+    fontWeight: "500",
+  },
+  infoValue: {
+    fontSize: 13,
+    color: "#1a1a1a",
+    fontFamily: "Menlo",
+    flexShrink: 1,
+    textAlign: "right",
   },
   statusBadge: {
     backgroundColor: "#e8f5e9",

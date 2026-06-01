@@ -20,6 +20,8 @@ class HotspotConfigurator(private val context: Context) {
   data class ProfileConfig(
     val domainName: String,
     val friendlyName: String,
+    val naiRealmNames: List<String>,
+    val trustedServerNames: List<String>,
     val clientCert: X509Certificate,
     val caCerts: List<X509Certificate>,
     val serverCaCert: X509Certificate,
@@ -104,7 +106,12 @@ class HotspotConfigurator(private val context: Context) {
       try {
         val field = passpointConfig.javaClass.getDeclaredField("aaaServerTrustedNames")
         field.isAccessible = true
-        field.set(passpointConfig, arrayOf(config.domainName))
+        val trusted = if (config.trustedServerNames.isNotEmpty()) {
+          config.trustedServerNames.toTypedArray()
+        } else {
+          arrayOf(config.domainName)
+        }
+        field.set(passpointConfig, trusted)
       } catch (_: Exception) {}
     }
 

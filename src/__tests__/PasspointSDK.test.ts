@@ -40,6 +40,19 @@ describe("PasspointSDK", () => {
 
       expect(mockNative.configure).toHaveBeenCalledWith(
         "pk_123",
+        "https://api-dev.dev.hib.nova.xyz/api/inventory/v1",
+        EapType.TLS,
+        null,
+        null,
+        null,
+      );
+    });
+
+    it("resolves poc environment", () => {
+      PasspointSDK.configure({ apiKey: "pk_123", environment: "poc" });
+
+      expect(mockNative.configure).toHaveBeenCalledWith(
+        "pk_123",
         "https://api.dev.hib.nova.xyz/api/inventory/v1",
         EapType.TLS,
         null,
@@ -48,12 +61,12 @@ describe("PasspointSDK", () => {
       );
     });
 
-    it("resolves staging environment", () => {
+    it("falls back to production for unmapped environments like staging", () => {
       PasspointSDK.configure({ apiKey: "pk_123", environment: "staging" });
 
       expect(mockNative.configure).toHaveBeenCalledWith(
         "pk_123",
-        "https://api.staging.hib.nova.xyz/api/inventory/v1",
+        "https://api.prod.hib.nova.xyz/api/inventory/v1",
         EapType.TLS,
         null,
         null,

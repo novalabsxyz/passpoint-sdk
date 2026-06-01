@@ -17,6 +17,13 @@ class PasspointManager {
 
   private let certLabel = "HeliumPasspoint Cert"
 
+  // Persisted profile metadata so getCertificateInfo() reports the
+  // domain/friendly name actually used for the installed Passpoint profile,
+  // not the inventory API host.
+  private let defaults = UserDefaults.standard
+  private let profileDomainKey = "com.helium.passpoint.profileDomain"
+  private let profileFriendlyNameKey = "com.helium.passpoint.profileFriendlyName"
+
   private init() {}
 
   struct Profile: Decodable {
@@ -139,6 +146,11 @@ class PasspointManager {
         identity: identity
       ))
 
+      // 10. Persist profile metadata for getCertificateInfo()
+      defaults.set(profile.domainName, forKey: profileDomainKey)
+      defaults.set(profile.friendlyName, forKey: profileFriendlyNameKey)
+      logger.info("install: stored profile domain=\(profile.domainName, privacy: .public)")
+
       return ["success": true]
     #endif
   }
@@ -176,8 +188,8 @@ class PasspointManager {
         "isInstalled": true,
         "expiresAt": isoExpiry as Any?,
         "subject": subject as Any?,
-        "domain": baseUrl?.host as Any?,
-        "friendlyName": "Helium WiFi" as Any?,
+        "domain": defaults.string(forKey: profileDomainKey) as Any?,
+        "friendlyName": defaults.string(forKey: profileFriendlyNameKey) as Any?,
       ]
     #endif
   }
@@ -248,6 +260,8 @@ class PasspointManager {
     #else
       await hotspot.removeAllProfiles()
       keychain.deleteAll()
+      defaults.removeObject(forKey: profileDomainKey)
+      defaults.removeObject(forKey: profileFriendlyNameKey)
 
       return ["success": true]
     #endif
