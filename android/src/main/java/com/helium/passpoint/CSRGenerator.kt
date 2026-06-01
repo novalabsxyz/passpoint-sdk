@@ -9,10 +9,12 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder
 
 class CSRGenerator {
 
-  fun generate(subscriberId: String, domain: String, keyPair: KeyPair): String {
+  fun generate(subscriberId: String, keyPair: KeyPair): String {
     ensureBouncyCastle()
 
-    val subject = X500Principal("CN=anonymous@${subscriberId}.${domain}")
+    // The literal "DOMAIN" is a sentinel the HIB inventory service substitutes
+    // with the partner's first NAI realm when issuing the certificate.
+    val subject = X500Principal("CN=anonymous@${subscriberId}.DOMAIN")
     val builder = JcaPKCS10CertificationRequestBuilder(subject, keyPair.public)
     val signer = JcaContentSignerBuilder("SHA256withRSA").build(keyPair.private)
     val csr = builder.build(signer)

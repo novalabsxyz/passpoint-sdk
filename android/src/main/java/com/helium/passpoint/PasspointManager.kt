@@ -53,7 +53,6 @@ class PasspointManager(private val context: Context) {
   fun install(subscriberId: String): JSONObject {
     val apiKey = this.apiKey ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
     val baseUrl = this.baseUrl ?: throw PasspointSDKException("NOT_CONFIGURED", "SDK not configured")
-    val domain = this.domain ?: throw PasspointSDKException("NOT_CONFIGURED", "Domain not resolved from base URL")
 
     // 0. Remove any existing profile so only one cert is installed at a time
     hotspot.removeAll()
@@ -70,7 +69,7 @@ class PasspointManager(private val context: Context) {
     // 2. Generate CSR
     val csr: String
     try {
-      csr = csrGenerator.generate(subscriberId, domain, keyPair)
+      csr = csrGenerator.generate(subscriberId, keyPair)
     } catch (e: Exception) {
       throw PasspointSDKException("CSR_GENERATION_FAILED", "Failed to generate CSR: ${e.message}", e)
     }

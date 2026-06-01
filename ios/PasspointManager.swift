@@ -88,9 +88,8 @@ class PasspointManager {
       }
 
       // 2. Generate CSR
-      guard let domain = baseUrl.host, let csr = csrGenerator.generate(
+      guard let csr = csrGenerator.generate(
         subscriberId: subscriberId,
-        domain: domain,
         keyPair: keyPair
       ) else {
         throw PasspointSDKError.csrGenerationFailed("CSR generation returned nil")

@@ -11,11 +11,13 @@ class CSRGenerator {
     self.logger = logger
   }
 
-  func generate(subscriberId: String, domain: String, keyPair: SecKeyPair) -> String? {
+  func generate(subscriberId: String, keyPair: SecKeyPair) -> String? {
     #if !targetEnvironment(simulator)
       logger.info("generateCSR: for subscriber \(subscriberId, privacy: .public)")
 
-      let cn = "anonymous@\(subscriberId).\(domain)"
+      // The literal "DOMAIN" is a sentinel the HIB inventory service substitutes
+      // with the partner's first NAI realm when issuing the certificate.
+      let cn = "anonymous@\(subscriberId).DOMAIN"
 
       guard let publicKeyData = SecKeyCopyExternalRepresentation(keyPair.publicKey, nil) as Data? else {
         logger.warning("generateCSR: failed to export public key")
