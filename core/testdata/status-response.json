@@ -1,0 +1,7 @@
+{
+  "subscriber_id": "subscriber-42",
+  "preset_id": "0f9d2b1e-4c3a-4f7b-9d21-6a8c5e0b1234",
+  "eap_type": 13,
+  "expires_at": "2035-01-01T00:00:00Z",
+  "active": true
+}

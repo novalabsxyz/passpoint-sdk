@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { DEFAULT_ENVIRONMENT, resolveBaseUrl } from "./environments";
 import { PasspointError } from "./errors";
 import NativePasspointSDK from "./NativePasspointSDK";
 import type {
@@ -9,17 +10,6 @@ import type {
   RemoveResult,
 } from "./types";
 import { EapType, PasspointErrorCode } from "./types";
-
-const ENVIRONMENTS: Record<string, string> = {
-  production: "https://api.prod.hib.nova.xyz/api/inventory/v1",
-  development: "https://api-dev.dev.hib.nova.xyz/api/inventory/v1",
-  poc: "https://api.dev.hib.nova.xyz/api/inventory/v1",
-};
-
-function resolveBaseUrl(env: string): string {
-  if (env.startsWith("http")) return env.replace(/\/+$/, "");
-  return ENVIRONMENTS[env] ?? ENVIRONMENTS.production;
-}
 
 /**
  * Core Helium Passpoint SDK class.
@@ -61,10 +51,24 @@ export class PasspointSDK {
       );
     }
 
+    // The native layer maps this onto a typed enum. Reject an out-of-range
+    // value here rather than letting it be silently coerced to EAP-TLS.
+    if (
+      config.eapType !== undefined &&
+      !Object.values(EapType).includes(config.eapType)
+    ) {
+      throw new PasspointError(
+        PasspointErrorCode.INVALID_CONFIG,
+        `eapType must be one of ${Object.values(EapType)
+          .filter((v) => typeof v === "number")
+          .join(", ")}; got ${config.eapType}.`,
+      );
+    }
+
     const instance = PasspointSDK.instance ?? new PasspointSDK();
     PasspointSDK.instance = instance;
 
-    const baseUrl = resolveBaseUrl(config.environment ?? "production");
+    const baseUrl = resolveBaseUrl(config.environment ?? DEFAULT_ENVIRONMENT);
     const eapType = config.eapType ?? EapType.TLS;
 
     NativePasspointSDK.configure(
@@ -144,7 +148,11 @@ export class PasspointSDK {
    * Get detailed information about the locally installed certificate.
    *
    * Returns `{ isInstalled: false, ... }` if no profile is installed
-   * (does not throw).
+   * (does not throw, and never returns `null`).
+   *
+   * On Android `expiresAt` and `subject` are always `null` — the OS keeps the
+   * issued certificate inside its own `PasspointConfiguration` and does not
+   * hand it back. Use {@link getRemoteStatus} for an authoritative expiry.
    */
   async getCertificateInfo(): Promise<CertificateInfo> {
     this.ensureConfigured();
@@ -169,9 +177,7 @@ export class PasspointSDK {
    *   active profile for this subscriber (HTTP 404).
    * @throws {PasspointError} on network or API errors.
    */
-  async getRemoteStatus(
-    subscriberId: string,
-  ): Promise<RemoteProfileStatus | null> {
+  async getRemoteStatus(subscriberId: string): Promise<RemoteProfileStatus | null> {
     this.ensureConfigured();
 
     if (!subscriberId || subscriberId.trim().length === 0) {
@@ -194,8 +200,10 @@ export class PasspointSDK {
    * Remove the installed Passpoint profile and clean up stored keys
    * and certificates from the device.
    *
-   * @throws {PasspointError} with code `CERTIFICATE_NOT_FOUND` if no profile is installed.
-   * @throws {PasspointError} with code `REMOVE_FAILED` if the removal fails.
+   * Idempotent: removing when nothing is installed succeeds rather than
+   * throwing.
+   *
+   * @throws {PasspointError} with code `SIMULATOR_NOT_SUPPORTED` on the iOS simulator.
    */
   async remove(): Promise<RemoveResult> {
     this.ensureConfigured();

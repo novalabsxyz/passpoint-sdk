@@ -30,8 +30,13 @@ export interface Spec {
   install(subscriberId: string): Promise<string>;
 
   /**
-   * Check if a Passpoint profile is currently installed locally
-   * (keychain on iOS, WifiManager on Android).
+   * Check if a Passpoint profile is currently installed locally — no network.
+   *
+   * iOS reads the client certificate from the keychain. Android reads a flag
+   * the SDK writes on a successful install: `WifiManager` exposes no way to ask
+   * whether a specific Passpoint profile is still present, so a profile the
+   * user deletes in Settings will still report as installed until the SDK's
+   * `remove()` runs.
    */
   isInstalled(): Promise<boolean>;
 

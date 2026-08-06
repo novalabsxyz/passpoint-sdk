@@ -1,0 +1,63 @@
+{
+  "$comment": "Single source of truth for values that MUST be identical across the Swift, Kotlin and TypeScript SDKs. Each SDK has a conformance test that reads this file and asserts its own constants match. Change this file and all three test suites will tell you what else needs updating.",
+  "version": 1,
+  "api": {
+    "apiKeyHeader": "X-Helium-P-Api-Key",
+    "generateProfilePath": "preset/profile/generate",
+    "profileStatusPath": "preset/profile/status",
+    "statusSubscriberQueryParam": "subscriber_id"
+  },
+  "environments": {
+    "production": "https://api.prod.hib.nova.xyz/api/inventory/v1",
+    "development": "https://api-dev.dev.hib.nova.xyz/api/inventory/v1",
+    "poc": "https://api.dev.hib.nova.xyz/api/inventory/v1"
+  },
+  "defaultEnvironment": "production",
+  "eapTypes": {
+    "TLS": 13,
+    "TTLS": 21,
+    "PEAP": 25
+  },
+  "defaultEapType": 13,
+  "csr": {
+    "$comment": "The literal 'DOMAIN' is a sentinel the HIB inventory service substitutes with the partner's first NAI realm when issuing the certificate.",
+    "commonNameTemplate": "anonymous@{subscriberId}.DOMAIN",
+    "signatureAlgorithm": "SHA256withRSA",
+    "keySizeBits": 2048
+  },
+  "errorCodes": [
+    "NOT_CONFIGURED",
+    "INVALID_API_KEY",
+    "INVALID_CONFIG",
+    "PLATFORM_NOT_SUPPORTED",
+    "SIMULATOR_NOT_SUPPORTED",
+    "MISSING_ENTITLEMENTS",
+    "PERMISSION_DENIED",
+    "KEYPAIR_GENERATION_FAILED",
+    "CSR_GENERATION_FAILED",
+    "NETWORK_ERROR",
+    "API_ERROR",
+    "API_UNAUTHORIZED",
+    "API_RATE_LIMITED",
+    "CERTIFICATE_PARSE_FAILED",
+    "CERTIFICATE_SAVE_FAILED",
+    "CERTIFICATE_NOT_FOUND",
+    "IDENTITY_LOAD_FAILED",
+    "PROFILE_INSTALL_FAILED",
+    "PROFILE_INSTALL_CANCELLED",
+    "PROFILE_NOT_FOUND",
+    "PROFILE_REMOVE_FAILED",
+    "REMOVE_FAILED",
+    "WIFI_MANAGER_UNAVAILABLE",
+    "NETWORK_SUGGESTION_DISALLOWED",
+    "NETWORK_SUGGESTION_LIMIT",
+    "UNKNOWN"
+  ],
+  "httpStatusMapping": {
+    "$comment": "How every SDK must map inventory-API HTTP status codes to error codes. 404 on the status endpoint is not an error - it means 'no profile', represented as null/nil.",
+    "401": "API_UNAUTHORIZED",
+    "403": "API_UNAUTHORIZED",
+    "429": "API_RATE_LIMITED",
+    "default": "API_ERROR"
+  }
+}

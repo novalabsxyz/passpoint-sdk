@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import type React from "react";
-import { AppState, Platform } from "react-native";
+import { Platform } from "react-native";
+// Imported by path, not from "react-native": jest's moduleNameMapper points at
+// this exact file, so it is the same module instance the SDK sees, but
+// TypeScript resolves the real react-native types for the bare specifier.
+import { __appStateListenerCount, __emitAppState } from "../__mocks__/react-native";
 import { PasspointError } from "../errors";
 import NativePasspointSDK from "../NativePasspointSDK";
 import { PasspointProvider } from "../PasspointProvider";
@@ -264,14 +268,6 @@ describe("usePasspoint", () => {
 
   describe("app state listener", () => {
     it("refreshes when app comes to foreground", async () => {
-      const listeners: Array<(state: string) => void> = [];
-      const addEventSpy = jest
-        .spyOn(AppState, "addEventListener")
-        .mockImplementation((_type, listener) => {
-          listeners.push(listener as (state: string) => void);
-          return { remove: jest.fn() } as any;
-        });
-
       const { result } = renderHook(() => usePasspoint(), { wrapper });
 
       await waitFor(() => {
@@ -287,25 +283,15 @@ describe("usePasspoint", () => {
 
       // Fire foreground event
       await act(async () => {
-        for (const l of listeners) l("active");
+        __emitAppState("active");
       });
 
       await waitFor(() => {
         expect(result.current.isInstalled).toBe(true);
       });
-
-      addEventSpy.mockRestore();
     });
 
     it("does not refresh on background/inactive state changes", async () => {
-      const listeners: Array<(state: string) => void> = [];
-      const addEventSpy = jest
-        .spyOn(AppState, "addEventListener")
-        .mockImplementation((_type, listener) => {
-          listeners.push(listener as (state: string) => void);
-          return { remove: jest.fn() } as any;
-        });
-
       const { result } = renderHook(() => usePasspoint(), { wrapper });
 
       await waitFor(() => {
@@ -315,14 +301,24 @@ describe("usePasspoint", () => {
       mockNative.isInstalled.mockClear();
 
       await act(async () => {
-        for (const l of listeners) l("background");
-        for (const l of listeners) l("inactive");
+        __emitAppState("background");
+        __emitAppState("inactive");
       });
 
       // Should not have triggered a refresh
       expect(mockNative.isInstalled).not.toHaveBeenCalled();
+    });
 
-      addEventSpy.mockRestore();
+    it("removes its listener on unmount", async () => {
+      const before = __appStateListenerCount();
+      const { result, unmount } = renderHook(() => usePasspoint(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.isInstalled).toBe(false);
+      });
+      expect(__appStateListenerCount()).toBe(before + 1);
+
+      unmount();
+      expect(__appStateListenerCount()).toBe(before);
     });
   });
 
