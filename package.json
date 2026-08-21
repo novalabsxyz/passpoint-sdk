@@ -64,8 +64,27 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/helium/passpoint-sdk.git"
+    "url": "git+https://github.com/novalabsxyz/passpoint-sdk.git"
   },
-  "license": "MIT",
-  "author": "Nova Labs"
+  "license": "Apache-2.0",
+  "author": "Nova Labs",
+  "homepage": "https://github.com/novalabsxyz/passpoint-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/novalabsxyz/passpoint-sdk/issues"
+  },
+  "keywords": [
+    "react-native",
+    "passpoint",
+    "hotspot-2.0",
+    "wifi",
+    "wifi-offload",
+    "helium",
+    "eap-tls",
+    "ios",
+    "android"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }

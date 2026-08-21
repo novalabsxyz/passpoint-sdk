@@ -296,4 +296,4 @@ Partners with a single preset can leave this unset.
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](./LICENSE).

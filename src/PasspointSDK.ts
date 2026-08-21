@@ -169,9 +169,7 @@ export class PasspointSDK {
    *   active profile for this subscriber (HTTP 404).
    * @throws {PasspointError} on network or API errors.
    */
-  async getRemoteStatus(
-    subscriberId: string,
-  ): Promise<RemoteProfileStatus | null> {
+  async getRemoteStatus(subscriberId: string): Promise<RemoteProfileStatus | null> {
     this.ensureConfigured();
 
     if (!subscriberId || subscriberId.trim().length === 0) {
