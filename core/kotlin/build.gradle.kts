@@ -6,10 +6,17 @@ plugins {
   id("maven-publish")
 }
 
-// One version number drives npm, SwiftPM (git tag) and Maven.
+// One version number drives npm, SwiftPM (git tag) and Maven. The license and
+// repository URL come from the same file for the same reason: both podspecs
+// already read them from package.json, and this POM previously drifted to a
+// stale license and a repository that does not exist.
 @Suppress("UNCHECKED_CAST")
 val packageJson = JsonSlurper().parse(rootProject.file("package.json")) as Map<String, Any>
 val sdkVersion = packageJson["version"] as String
+val sdkLicense = packageJson["license"] as String
+@Suppress("UNCHECKED_CAST")
+val sdkRepoUrl = (packageJson["repository"] as Map<String, Any>)["url"] as String
+val repoUrl = sdkRepoUrl.removePrefix("git+").removeSuffix(".git")
 
 android {
   namespace = "com.helium.passpoint"
@@ -125,22 +132,24 @@ publishing {
       pom {
         name.set("Helium Passpoint SDK")
         description.set("Helium Passpoint (Hotspot 2.0) WiFi offload SDK for Android")
-        url.set("https://github.com/helium/passpoint-sdk")
+        url.set(repoUrl)
         licenses {
           license {
-            name.set("MIT")
-            url.set("https://opensource.org/licenses/MIT")
+            name.set(sdkLicense)
+            // Point at the repo's own LICENSE rather than a per-SPDX-id URL,
+            // so switching licenses needs no edit here.
+            url.set("$repoUrl/blob/main/LICENSE")
           }
         }
         developers {
           developer {
             name.set("Nova Labs")
-            url.set("https://github.com/helium")
+            url.set("https://github.com/novalabsxyz")
           }
         }
         scm {
-          url.set("https://github.com/helium/passpoint-sdk")
-          connection.set("scm:git:https://github.com/helium/passpoint-sdk.git")
+          url.set(repoUrl)
+          connection.set("scm:git:$repoUrl.git")
         }
       }
     }

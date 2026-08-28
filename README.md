@@ -103,7 +103,7 @@ function WifiScreen({ subscriberId }) {
 }
 ```
 
-Runnable example: [`examples/react-native/`](examples/react-native/).
+Example integration: [`examples/react-native/`](examples/react-native/) — the provider and screen code above, as files you can copy into an app. (Unlike the two native examples, it is not a standalone runnable project.)
 
 ---
 
@@ -235,7 +235,7 @@ Like the iOS SDK, the client is safe to use from several threads: `install()` an
 
 **EAP-TLS only.** An Android Passpoint profile is built from a certificate credential, which is EAP-TLS by construction, so `configure()` rejects `EapType.TTLS` and `EapType.PEAP` with `INVALID_CONFIG` rather than accepting them and quietly provisioning EAP-TLS anyway. iOS accepts all three.
 
-**Private key storage.** The keypair lives in `Context.getNoBackupFilesDir()`, not SharedPreferences, so it is excluded from Auto Backup and device-to-device transfer without any manifest change on your side. A keypair written by an SDK version before 0.2 is migrated out of SharedPreferences and erased there on first use.
+**Private key storage.** The keypair lives in `Context.getNoBackupFilesDir()`, not SharedPreferences, so it is excluded from Auto Backup and device-to-device transfer without any manifest change on your side. A keypair left behind by a pre-release build that used SharedPreferences is migrated out and erased there on first use.
 
 Runnable example: [`examples/android-kotlin/`](examples/android-kotlin/).
 
