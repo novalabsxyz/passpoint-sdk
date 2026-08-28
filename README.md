@@ -404,7 +404,7 @@ interface RemoteProfileStatus {
 
 ## Contributing
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the repository layout, how the three SDKs share code, and how to run all three test suites.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the toolchains, the test commands, and what CI checks. [ARCHITECTURE.md](ARCHITECTURE.md) covers the repository layout, how the three SDKs share code, and what the test suites can and cannot reach.
 
 ## License
 
