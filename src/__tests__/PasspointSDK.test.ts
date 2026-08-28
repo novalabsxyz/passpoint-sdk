@@ -395,20 +395,70 @@ describe("PasspointSDK", () => {
     });
   });
 
+  describe("eapType validation", () => {
+    it("accepts every declared EAP type", () => {
+      for (const value of [EapType.TLS, EapType.TTLS, EapType.PEAP]) {
+        PasspointSDK._reset();
+        expect(() =>
+          PasspointSDK.configure({ apiKey: "test-key", eapType: value }),
+        ).not.toThrow();
+        expect(mockNative.configure).toHaveBeenLastCalledWith(
+          "test-key",
+          expect.any(String),
+          value,
+          null,
+          null,
+          null,
+        );
+      }
+    });
+
+    it("rejects a value outside the enum instead of silently using EAP-TLS", () => {
+      PasspointSDK._reset();
+      expect(() =>
+        PasspointSDK.configure({ apiKey: "test-key", eapType: 18 as EapType }),
+      ).toThrow(PasspointError);
+      expect(mockNative.configure).not.toHaveBeenCalled();
+    });
+  });
+
   describe("unconfigured SDK methods", () => {
-    it("throws NOT_CONFIGURED for all methods", async () => {
-      // Get a fresh unconfigured instance by accessing the class directly
-      // Since we can't construct it, we test via getInstance
+    // Previously this block only re-asserted getInstance(), so ensureConfigured()
+    // could be deleted entirely and every test still passed. Reach the instance
+    // methods directly to actually exercise the guard.
+    function unconfiguredInstance(): PasspointSDK {
+      const sdk = PasspointSDK.configure({ apiKey: "test-key" });
       PasspointSDK._reset();
+      // The instance object survives the reset; its `configured` flag is what
+      // ensureConfigured() checks, so clear it the way a fresh instance would be.
+      (sdk as unknown as { configured: boolean }).configured = false;
+      return sdk;
+    }
 
-      // Configure, get instance, then reset to simulate stale reference
-      PasspointSDK.configure({ apiKey: "pk_123" });
+    it.each([
+      ["install", (sdk: PasspointSDK) => sdk.install("sub-1")],
+      ["isInstalled", (sdk: PasspointSDK) => sdk.isInstalled()],
+      ["getCertificateInfo", (sdk: PasspointSDK) => sdk.getCertificateInfo()],
+      ["getRemoteStatus", (sdk: PasspointSDK) => sdk.getRemoteStatus("sub-1")],
+      ["remove", (sdk: PasspointSDK) => sdk.remove()],
+    ])("%s rejects with NOT_CONFIGURED", async (_name, call) => {
+      const sdk = unconfiguredInstance();
+      mockNative.isInstalled.mockResolvedValue(true);
+
+      await expect(call(sdk)).rejects.toMatchObject({
+        code: PasspointErrorCode.NOT_CONFIGURED,
+      });
+      expect(mockNative.isInstalled).not.toHaveBeenCalled();
+    });
+
+    it("getInstance throws NOT_CONFIGURED before configure", () => {
       PasspointSDK._reset();
-
-      // The instance still exists but the static was cleared.
-      // However, the instance's `configured` flag is still true from the
-      // configure call, so we test getInstance instead.
       expect(() => PasspointSDK.getInstance()).toThrow(PasspointError);
+      try {
+        PasspointSDK.getInstance();
+      } catch (e) {
+        expect((e as PasspointError).code).toBe(PasspointErrorCode.NOT_CONFIGURED);
+      }
     });
   });
 });

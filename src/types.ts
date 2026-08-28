@@ -8,10 +8,12 @@ export interface PasspointConfig {
 
   /**
    * API environment. Defaults to `'production'`.
-   * Use `'staging'` or `'development'` for testing, or pass a full base URL
+   * Use `'development'` or `'poc'` for testing, or pass a full base URL
    * (ending at `/api/inventory/v1`, with no trailing path) for a custom deployment.
+   *
+   * An unrecognised name falls back to production rather than throwing.
    */
-  environment?: "production" | "staging" | "development" | (string & {});
+  environment?: "production" | "development" | "poc" | (string & {});
 
   /**
    * EAP authentication type. Defaults to `EapType.TLS` (13).

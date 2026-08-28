@@ -22,6 +22,7 @@ export interface UsePasspointResult {
   isInstalled: boolean | null;
 
   /** Detailed certificate info. `null` while loading or if not installed. */
+  /** `null` only until the first refresh completes. */
   certificateInfo: CertificateInfo | null;
 
   /** Install a Passpoint profile for the given subscriber. */

@@ -1,3 +1,17 @@
+// React Native module. Contains only the bridge (PasspointSDKModule /
+// PasspointSDKPackage); the SDK itself lives in ../core/kotlin and is compiled
+// in from source below.
+//
+// Source inclusion rather than `implementation project(':passpoint-core')`:
+// React Native autolinking injects this directory into the *host app's* Gradle
+// build, which knows nothing about this repo's settings.gradle.kts, so a
+// project dependency cannot resolve. A Maven coordinate would work but would
+// force a publish for every local change and add a repository requirement for
+// partners. Compiling the sources keeps `pnpm add` the only install step.
+//
+// Native Android apps do not use this file — they depend on the published
+// com.helium.passpoint:passpoint-sdk AAR built from ../core/kotlin.
+
 buildscript {
   ext.safeExtGet = {prop, fallback ->
     rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
@@ -12,13 +26,22 @@ android {
   compileSdk safeExtGet("compileSdkVersion", 34)
 
   defaultConfig {
-    minSdk safeExtGet("minSdkVersion", 26)
+    // Hard floor, not just a default: the SDK calls PasspointConfiguration
+    // (API 26), java.time and java.util.Base64. A host app on a lower minSdk
+    // must fail at build time, loudly, rather than crash on an old device.
+    minSdk Math.max(26, safeExtGet("minSdkVersion", 26) as int)
     targetSdk safeExtGet("targetSdkVersion", 34)
+
+    // Without this, R8 strips BouncyCastle's reflectively-loaded $Mappings
+    // classes and every install fails with CSR_GENERATION_FAILED in release
+    // builds only. Shared with the published AAR.
+    consumerProguardFiles "../core/kotlin/consumer-rules.pro"
   }
 
   sourceSets {
     main {
-      java.srcDirs += "src/main/java"
+      java.srcDirs += ["src/main/java", "../core/kotlin/src/main/kotlin"]
+      res.srcDirs += ["../core/kotlin/src/main/res"]
     }
   }
 
@@ -32,9 +55,18 @@ android {
   }
 }
 
+// Host apps get whatever React Native they ship (the "+" below; the React
+// Native Gradle plugin substitutes the local artifact). This repo's own
+// verification build pins a version via gradle.properties so its Kotlin
+// version and React Native's stay compatible.
+def reactAndroidVersion = findProperty("heliumReactAndroidVersion") ?: "+"
+
 dependencies {
-  implementation "com.facebook.react:react-android:+"
+  implementation "com.facebook.react:react-android:${reactAndroidVersion}"
+
+  // Must stay in step with core/kotlin/build.gradle.kts.
   implementation "org.bouncycastle:bcprov-jdk18on:1.78.1"
   implementation "org.bouncycastle:bcpkix-jdk18on:1.78.1"
   implementation "androidx.core:core-ktx:1.12.0"
+  implementation "androidx.annotation:annotation:1.7.1"
 }

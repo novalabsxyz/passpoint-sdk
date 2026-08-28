@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typescript
+      - run: pnpm test
+
+  swift:
+    name: Swift
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runs the platform-independent half of the SDK: CSR building, DER
+      # parsing, the API client, models, environments, contract conformance.
+      - name: Test (macOS slice)
+        run: swift test
+
+      # The iOS-only half — PasspointClient and HotspotConfigurator — has no
+      # test coverage (it needs a device keychain and entitlements), so at
+      # minimum prove it still compiles.
+      - name: Build (iOS slice)
+        run: swift build --triple arm64-apple-ios15.0 --sdk "$(xcrun --sdk iphoneos --show-sdk-path)"
+
+      # Fails if anything the example needs stopped being public.
+      - name: Build native example
+        working-directory: examples/ios-swift
+        run: swift build --triple arm64-apple-ios15.0 --sdk "$(xcrun --sdk iphoneos --show-sdk-path)"
+
+      - name: Validate podspecs
+        run: |
+          pod ipc spec HeliumPasspoint.podspec > /dev/null
+          # The React Native podspec calls install_modules_dependencies, which
+          # only exists once React Native's native_modules.rb is loaded, so
+          # check its syntax and that every glob it declares resolves.
+          ruby -c helium-passpoint-sdk.podspec > /dev/null
+          ls core/swift/Sources/HeliumPasspoint/*.swift > /dev/null
+          ls core/swift/Sources/HeliumPasspoint/Resources/* > /dev/null
+          ls ios/*.swift ios/*.mm > /dev/null
+
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Test the SDK
+        run: ./gradlew :passpoint-core:testDebugUnitTest
+
+      - name: Build the AAR
+        run: ./gradlew :passpoint-core:assembleRelease
+
+      # Catches a React Native bridge that no longer matches the core, against
+      # the oldest supported React Native (pinned in gradle.properties).
+      - name: Compile the React Native bridge
+        run: ./gradlew :passpoint-react-native:compileDebugKotlin
+
+      # Fails if anything the example needs stopped being public.
+      - name: Build native example
+        run: ./gradlew :example-android:assembleDebug
