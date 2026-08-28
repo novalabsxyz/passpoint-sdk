@@ -8,7 +8,7 @@
 //   swift build --triple arm64-apple-ios15.0 --sdk "$(xcrun --sdk iphoneos --show-sdk-path)"
 //
 // A real app would replace `path: "../.."` with:
-//   .package(url: "https://github.com/helium/passpoint-sdk.git", from: "0.1.1")
+//   .package(url: "https://github.com/novalabsxyz/passpoint-sdk.git", from: "1.0.0")
 
 import PackageDescription
 

@@ -30,7 +30,7 @@ to actually associate with a hotspot.
 A real app depends on the published artifact rather than the project:
 
 ```kotlin
-implementation("com.helium.passpoint:passpoint-sdk:0.1.1")
+implementation("com.helium.passpoint:passpoint-sdk:1.0.0")
 ```
 
 Two things every consuming app needs, both shown in `build.gradle.kts`:

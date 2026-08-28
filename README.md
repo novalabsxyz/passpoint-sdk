@@ -114,13 +114,13 @@ Runnable example: [`examples/react-native/`](examples/react-native/).
 **Swift Package Manager** — in Xcode, *File → Add Package Dependencies*, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/novalabsxyz/passpoint-sdk.git", from: "0.1.1")
+.package(url: "https://github.com/novalabsxyz/passpoint-sdk.git", from: "1.0.0")
 ```
 
 **CocoaPods**:
 
 ```ruby
-pod 'HeliumPasspoint', :git => 'https://github.com/novalabsxyz/passpoint-sdk.git', :tag => 'v0.1.1'
+pod 'HeliumPasspoint', :git => 'https://github.com/novalabsxyz/passpoint-sdk.git', :tag => 'v1.0.0'
 ```
 
 ### Entitlements
@@ -174,7 +174,7 @@ Runnable example: [`examples/ios-swift/`](examples/ios-swift/).
 
 ```kotlin
 dependencies {
-  implementation("com.helium.passpoint:passpoint-sdk:0.1.1")
+  implementation("com.helium.passpoint:passpoint-sdk:1.0.0")
 }
 ```
 

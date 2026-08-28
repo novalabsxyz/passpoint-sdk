@@ -7,7 +7,7 @@ repo_url = package["repository"]["url"].sub(/\Agit\+/, "").sub(/\.git\z/, "")
 # React Native and prefer CocoaPods to SwiftPM. Builds core/swift/ only — the
 # React Native bridge in ios/ is deliberately excluded.
 #
-#   pod 'HeliumPasspoint', :git => 'https://github.com/novalabsxyz/passpoint-sdk.git', :tag => 'v0.1.1'
+#   pod 'HeliumPasspoint', :git => 'https://github.com/novalabsxyz/passpoint-sdk.git', :tag => 'v1.0.0'
 #
 # SwiftPM users get the same sources through the root Package.swift.
 Pod::Spec.new do |s|

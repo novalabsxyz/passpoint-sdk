@@ -5,7 +5,7 @@
 //   ./gradlew :example-android:assembleDebug
 //
 // A real app would replace the project dependency with the published artifact:
-//   implementation("com.helium.passpoint:passpoint-sdk:0.1.1")
+//   implementation("com.helium.passpoint:passpoint-sdk:1.0.0")
 
 plugins {
   id("com.android.application")
