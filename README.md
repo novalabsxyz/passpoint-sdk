@@ -408,4 +408,4 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the repository layout, how the three 
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](./LICENSE).

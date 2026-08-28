@@ -1,6 +1,7 @@
 require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+repo_url = package["repository"]["url"].sub(/\Agit\+/, "").sub(/\.git\z/, "")
 
 # CocoaPods distribution of the native Swift SDK, for iOS apps that are not
 # React Native and prefer CocoaPods to SwiftPM. Builds core/swift/ only — the
@@ -13,11 +14,11 @@ Pod::Spec.new do |s|
   s.name         = "HeliumPasspoint"
   s.version      = package["version"]
   s.summary      = "Helium Passpoint (Hotspot 2.0) WiFi offload SDK for iOS"
-  s.homepage     = package["repository"]["url"]
-  s.license      = { :type => "MIT", :file => "LICENSE" }
+  s.homepage     = repo_url
+  s.license      = package["license"]
   s.author       = package["author"]
   # Tags are vX.Y.Z — CocoaPods needs the literal tag name, unlike SwiftPM.
-  s.source       = { :git => package["repository"]["url"], :tag => "v#{s.version}" }
+  s.source       = { :git => "#{repo_url}.git", :tag => "v#{s.version}" }
 
   s.platform     = :ios, "15.0"
   s.swift_version = "5.9"
